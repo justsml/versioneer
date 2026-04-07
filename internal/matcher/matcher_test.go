@@ -2,6 +2,15 @@ package matcher
 
 import "testing"
 
+func TestSemverInvalid(t *testing.T) {
+	for _, input := range []string{"abc", "1.def.0", "1.0.ghi", "not-a-version", ""} {
+		sv := parseSemver(input)
+		if sv.valid {
+			t.Errorf("parseSemver(%q) should be invalid, got %+v", input, sv)
+		}
+	}
+}
+
 func TestSemverCompare(t *testing.T) {
 	tests := []struct {
 		a, b string

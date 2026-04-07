@@ -41,7 +41,11 @@ func parseSemver(s string) semver {
 	v := semver{pre: pre, valid: true}
 
 	if len(parts) >= 1 {
-		v.major, _ = strconv.Atoi(parts[0])
+		n, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return semver{}
+		}
+		v.major = n
 	}
 	if len(parts) >= 2 {
 		// Handle "x" and "*" wildcards as 0.
@@ -49,14 +53,22 @@ func parseSemver(s string) semver {
 		if p == "" {
 			p = "0"
 		}
-		v.minor, _ = strconv.Atoi(p)
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			return semver{}
+		}
+		v.minor = n
 	}
 	if len(parts) >= 3 {
 		p := strings.TrimRight(parts[2], "x*X")
 		if p == "" {
 			p = "0"
 		}
-		v.patch, _ = strconv.Atoi(p)
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			return semver{}
+		}
+		v.patch = n
 	}
 
 	return v
