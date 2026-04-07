@@ -24,7 +24,9 @@ func (requirementsTxt) Parse(path string, data []byte) ([]model.Dependency, erro
 			line = line[:i]
 		}
 		if i := strings.Index(line, "["); i >= 0 {
-			line = line[:i] + line[strings.Index(line, "]")+1:]
+			if j := strings.Index(line, "]"); j > i {
+				line = line[:i] + line[j+1:]
+			}
 		}
 		line = strings.TrimSpace(line)
 
