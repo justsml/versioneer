@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"context"
 	"io/fs"
 	"log"
 	"os"
@@ -23,13 +24,17 @@ var skipDirs = map[string]struct{}{
 }
 
 // Scan walks root in parallel and returns all discovered projects.
-func Scan(root string, logger *log.Logger) (*model.ScanResult, error) {
+// The context can be used to cancel or timeout the scan.
+func Scan(ctx context.Context, root string, logger *log.Logger) (*model.ScanResult, error) {
 	start := time.Now()
 	manifests := parser.ManifestFiles()
 
 	// Phase 1: walk the tree and collect manifest paths.
 	var paths []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			return nil // skip unreadable entries
 		}
@@ -78,6 +83,9 @@ func Scan(root string, logger *log.Logger) (*model.ScanResult, error) {
 		go func() {
 			defer wg.Done()
 			for path := range ch {
+				if ctx.Err() != nil {
+					return
+				}
 				p := parser.ForFile(path)
 				if p == nil {
 					continue

@@ -3,6 +3,7 @@
 package resolver
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"os"
@@ -38,12 +39,15 @@ func cachedReadLock(path string, parse func([]byte) map[string]string) (map[stri
 
 // Resolve fills in the Resolved field for all dependencies in the scan result.
 // It processes projects in parallel, caching lock file reads across projects.
-func Resolve(result *model.ScanResult, logger *log.Logger) {
+func Resolve(ctx context.Context, result *model.ScanResult, logger *log.Logger) {
 	var wg sync.WaitGroup
 	for i := range result.Projects {
 		wg.Add(1)
 		go func(p *model.Project) {
 			defer wg.Done()
+			if ctx.Err() != nil {
+				return
+			}
 			resolveProject(result.RootDir, p, logger)
 		}(&result.Projects[i])
 	}

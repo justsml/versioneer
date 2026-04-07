@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/justsml/versioneer/internal/matcher"
@@ -41,6 +43,9 @@ func main() {
 	}
 	flag.Parse()
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
 	var logger *log.Logger
 	if *verbose {
 		logger = log.New(os.Stderr, "versioneer: ", 0)
@@ -53,7 +58,7 @@ func main() {
 		root = flag.Arg(0)
 	}
 
-	result, err := scanner.Scan(root, logger)
+	result, err := scanner.Scan(ctx, root, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -62,7 +67,7 @@ func main() {
 	// Resolve actual versions from lock files / disk.
 	// Auto-enable when doing security checks — we need real versions.
 	if *resolve || *check != "" || *checkFile != "" {
-		resolver.Resolve(result, logger)
+		resolver.Resolve(ctx, result, logger)
 	}
 
 	// Apply filters.
