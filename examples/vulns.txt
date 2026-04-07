@@ -1,0 +1,22 @@
+# Example vulnerability rules file for versioneer security sweeps.
+#
+# Format: package-name@constraint
+# Constraints: >=, >, <=, <, = (comma-separated for ranges)
+# Name-only lines match any version of that package.
+
+# axios SSRF vulnerability (CVE-2023-45857) — affects <1.6.0
+axios@<1.6.0
+
+# event-stream malicious release
+event-stream@=3.3.6
+
+# colors / faker protest-ware
+colors@>=1.4.1
+faker@>=6.6.6
+
+# ua-parser-js supply chain attack
+ua-parser-js@>=0.7.29,<0.7.31
+ua-parser-js@>=0.8.0,<1.0.1
+
+# lodash prototype pollution (CVE-2020-28500) — affects <4.17.21
+lodash@<4.17.21
