@@ -213,14 +213,14 @@ func parsePnpmLock(data []byte) map[string]string {
 }
 
 func applyResolved(p *model.Project, resolved map[string]string) bool {
-	any := false
+	applied := false
 	for i := range p.Dependencies {
 		if v, ok := resolved[p.Dependencies[i].Name]; ok {
 			p.Dependencies[i].Resolved = v
-			any = true
+			applied = true
 		}
 	}
-	return any
+	return applied
 }
 
 // Fallback: read node_modules/<name>/package.json
