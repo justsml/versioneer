@@ -278,13 +278,18 @@ func resolveGo(dir string, p *model.Project) {
 // --- Rust: Cargo.lock ---
 
 func resolveRust(dir string, p *model.Project) {
+	startDir := dir
 	data, err := os.ReadFile(filepath.Join(dir, "Cargo.lock"))
 	if err != nil {
-		// Walk up to workspace root
+		// Walk up to workspace root, stopping at .git boundary.
 		parent := filepath.Dir(dir)
 		for parent != dir {
 			data, err = os.ReadFile(filepath.Join(parent, "Cargo.lock"))
 			if err == nil {
+				break
+			}
+			// Stop at repo root.
+			if _, gitErr := os.Stat(filepath.Join(dir, ".git")); gitErr == nil && dir != startDir {
 				break
 			}
 			dir = parent
