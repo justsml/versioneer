@@ -5,15 +5,15 @@ A blazing-fast dependency scanner and security audit tool for polyglot codebases
 Scan **55,000 dependencies across 4,000+ projects in ~10 seconds** — then sweep them for known vulnerabilities in one command.
 
 ```
-$ versioneer -resolve -check='axios@<1.6.0,lodash@<4.17.21' ~/code
+$ versioneer -resolve -check='axios@<1.6.0,lodash@<4.17.21' ~/
 
 WARNING: 3 dependencies matched by name but version could not be resolved — marked UNRESOLVED.
 FOUND 8 matching dependencies across rules.
 NAME    SPEC     INSTALLED   ECO  TYPE    MANIFEST  DEPS DIR   SOURCE
 ──────  ───────  ──────────  ───  ──────  ────────  ─────────  ─────────────────────────────
-axios   ^0.26.0  0.26.1      npm  direct  1mo ago   —          oss/AgentGPT/next/package.json
-axios   ^0.21.1  0.21.4      npm  dev     9mo ago   —          oss/swc/package.json
-lodash  4.17.15  4.17.15     npm  direct  6mo ago   3mo ago    oss/legacy-app/package.json
+axios   ^0.26.0  0.26.1      npm  direct  1mo ago   —          ~/code/AgentGPT/next/package.json
+axios   ^0.21.1  0.21.4      npm  dev     9mo ago   —          ~/code/swc/package.json
+lodash  4.17.15  4.17.15     npm  direct  6mo ago   3mo ago    ~/code/legacy-app/package.json
 ...
 ```
 
