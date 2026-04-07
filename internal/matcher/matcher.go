@@ -89,6 +89,17 @@ func ParseRule(s string) (Rule, error) {
 		if part == "" {
 			continue
 		}
+		// ~= (Python compatible release) expands to two constraints:
+		//   ~=1.4   → >=1.4.0, <2.0.0
+		//   ~=1.4.2 → >=1.4.2, <1.5.0
+		if strings.HasPrefix(part, "~=") {
+			cs, err := expandCompatRelease(strings.TrimSpace(part[2:]))
+			if err != nil {
+				return Rule{}, fmt.Errorf("bad constraint %q in %q: %w", part, s, err)
+			}
+			rule.Constraints = append(rule.Constraints, cs...)
+			continue
+		}
 		c, err := parseConstraint(part)
 		if err != nil {
 			return Rule{}, fmt.Errorf("bad constraint %q in %q: %w", part, s, err)
@@ -126,11 +137,11 @@ func parseConstraint(s string) (constraint, error) {
 			if !sv.valid {
 				return constraint{}, fmt.Errorf("invalid version %q", ver)
 			}
-			// ~= (Python compatible release): ~=1.4 means >=1.4,<2.0; ~=1.4.2 means >=1.4.2,<1.5.0
-			if op == "~=" {
-				return constraint{op: ">=", version: sv}, nil
+			if op != "~=" {
+				return constraint{op: op, version: sv}, nil
 			}
-			return constraint{op: op, version: sv}, nil
+			// ~= handled at parseConstraints level — should not reach here.
+			return constraint{op: ">=", version: sv}, nil
 		}
 	}
 
@@ -140,6 +151,31 @@ func parseConstraint(s string) (constraint, error) {
 		return constraint{}, fmt.Errorf("invalid version %q", s)
 	}
 	return constraint{op: "=", version: sv}, nil
+}
+
+// expandCompatRelease implements Python's ~= operator (PEP 440).
+// ~=X.Y   → >=X.Y.0, <(X+1).0.0
+// ~=X.Y.Z → >=X.Y.Z, <X.(Y+1).0
+func expandCompatRelease(ver string) ([]constraint, error) {
+	sv := parseSemver(ver)
+	if !sv.valid {
+		return nil, fmt.Errorf("invalid version %q", ver)
+	}
+
+	lower := constraint{op: ">=", version: sv}
+
+	// Determine precision from the original string to pick the upper bound.
+	parts := strings.SplitN(strings.TrimPrefix(strings.TrimPrefix(ver, "v"), "="), ".", 4)
+	var upper semver
+	if len(parts) >= 3 {
+		// ~=1.4.2 → <1.5.0
+		upper = semver{major: sv.major, minor: sv.minor + 1, patch: 0, valid: true}
+	} else {
+		// ~=1.4 → <2.0.0
+		upper = semver{major: sv.major + 1, minor: 0, patch: 0, valid: true}
+	}
+
+	return []constraint{lower, {op: "<", version: upper}}, nil
 }
 
 // LoadRulesFile reads a rules file (one rule per line, # comments, blank lines ok).

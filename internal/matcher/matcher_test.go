@@ -52,6 +52,15 @@ func TestRuleMatch(t *testing.T) {
 		{"event-stream", "3.3.6", true},
 		{"event-stream", "0.0.1", true},
 
+		// Compatible release (~=).
+		{"pkg@~=1.4.2", "1.4.2", true},
+		{"pkg@~=1.4.2", "1.4.9", true},
+		{"pkg@~=1.4.2", "1.5.0", false},
+		{"pkg@~=1.4.2", "1.4.1", false},
+		{"pkg@~=1.4", "1.4.0", true},
+		{"pkg@~=1.4", "1.99.0", true},
+		{"pkg@~=1.4", "2.0.0", false},
+
 		// Scoped packages.
 		{"@scope/pkg@>=2.0.0", "2.0.0", true},
 		{"@scope/pkg@>=2.0.0", "1.9.9", false},
