@@ -59,7 +59,7 @@ func Scan(root string) (*model.ScanResult, error) {
 	if workers == 0 {
 		return &model.ScanResult{
 			RootDir:      root,
-			ScanDuration: time.Since(start).String(),
+			ScanDuration: time.Since(start),
 		}, nil
 	}
 
@@ -131,6 +131,6 @@ func Scan(root string) (*model.ScanResult, error) {
 		RootDir:      root,
 		Projects:     projects,
 		TotalDeps:    totalDeps,
-		ScanDuration: time.Since(start).String(),
+		ScanDuration: time.Since(start),
 	}, nil
 }

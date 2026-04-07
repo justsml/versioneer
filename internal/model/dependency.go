@@ -32,5 +32,5 @@ type ScanResult struct {
 	RootDir      string    `json:"root_dir"`
 	Projects     []Project `json:"projects"`
 	TotalDeps    int       `json:"total_deps"`
-	ScanDuration string    `json:"scan_duration"`
+	ScanDuration time.Duration `json:"scan_duration"`
 }
