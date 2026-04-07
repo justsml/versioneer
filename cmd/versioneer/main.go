@@ -201,10 +201,10 @@ func filter(r *model.ScanResult, dep, eco, depType string) *model.ScanResult {
 	for _, p := range r.Projects {
 		var kept []model.Dependency
 		for _, d := range p.Dependencies {
-			if eco != "" && strings.ToLower(d.Ecosystem) != eco {
+			if eco != "" && !strings.EqualFold(d.Ecosystem, eco) {
 				continue
 			}
-			if depType != "" && strings.ToLower(d.DepType) != depType {
+			if depType != "" && !strings.EqualFold(d.DepType, depType) {
 				continue
 			}
 			if dep != "" && !strings.Contains(strings.ToLower(d.Name), dep) {
