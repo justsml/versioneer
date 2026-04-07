@@ -176,8 +176,12 @@ func extractConcreteVersion(spec string) string {
 	if spec == "" || spec == "*" {
 		return ""
 	}
-	// If it starts with a digit or 'v' followed by digit, and has no range operators, it's concrete.
-	if len(spec) > 0 && (spec[0] >= '0' && spec[0] <= '9') {
+	// Reject anything containing range/wildcard operators.
+	if strings.ContainsAny(spec, "^~><=!|x*X ") {
+		return ""
+	}
+	// Must start with a digit or 'v' followed by digit.
+	if spec[0] >= '0' && spec[0] <= '9' {
 		return spec
 	}
 	if len(spec) > 1 && spec[0] == 'v' && (spec[1] >= '0' && spec[1] <= '9') {
