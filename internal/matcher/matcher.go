@@ -210,22 +210,19 @@ func ParseRulesArg(s string) ([]Rule, error) {
 	// Be careful with commas inside version constraints.
 	// Split on comma only if what follows looks like a package name (letter or @).
 	var parts []string
-	current := ""
+	start := 0
 	for i := 0; i < len(s); i++ {
 		if s[i] == ',' {
 			// Peek ahead: if next char is a digit or operator, it's part of a constraint.
 			if i+1 < len(s) && isConstraintStart(s[i+1]) {
-				current += ","
 				continue
 			}
-			parts = append(parts, current)
-			current = ""
-			continue
+			parts = append(parts, s[start:i])
+			start = i + 1
 		}
-		current += string(s[i])
 	}
-	if current != "" {
-		parts = append(parts, current)
+	if start < len(s) {
+		parts = append(parts, s[start:])
 	}
 
 	var rules []Rule
