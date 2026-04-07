@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -21,6 +23,7 @@ func main() {
 	resolve := flag.Bool("resolve", false, "resolve actual versions from lock files and node_modules")
 	check := flag.String("check", "", "check for vulnerable packages: pkg@>=1.0,<2.0,other-pkg (comma-separated)")
 	checkFile := flag.String("checkfile", "", "file with vulnerable package rules (one per line: pkg@constraint)")
+	verbose := flag.Bool("verbose", false, "print diagnostic messages (skipped files, parse errors, resolution failures)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: versioneer [flags] [directory]\n\nScan and report project dependencies.\n\nFlags:\n")
@@ -38,12 +41,19 @@ func main() {
 	}
 	flag.Parse()
 
+	var logger *log.Logger
+	if *verbose {
+		logger = log.New(os.Stderr, "versioneer: ", 0)
+	} else {
+		logger = log.New(io.Discard, "", 0)
+	}
+
 	root := "."
 	if flag.NArg() > 0 {
 		root = flag.Arg(0)
 	}
 
-	result, err := scanner.Scan(root)
+	result, err := scanner.Scan(root, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -52,7 +62,7 @@ func main() {
 	// Resolve actual versions from lock files / disk.
 	// Auto-enable when doing security checks — we need real versions.
 	if *resolve || *check != "" || *checkFile != "" {
-		resolver.Resolve(result)
+		resolver.Resolve(result, logger)
 	}
 
 	// Apply filters.

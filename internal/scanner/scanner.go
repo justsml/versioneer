@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,7 +23,7 @@ var skipDirs = map[string]struct{}{
 }
 
 // Scan walks root in parallel and returns all discovered projects.
-func Scan(root string) (*model.ScanResult, error) {
+func Scan(root string, logger *log.Logger) (*model.ScanResult, error) {
 	start := time.Now()
 	manifests := parser.ManifestFiles()
 
@@ -83,11 +84,13 @@ func Scan(root string) (*model.ScanResult, error) {
 				}
 				data, err := os.ReadFile(path)
 				if err != nil {
+					logger.Printf("skip %s: %v", path, err)
 					results <- result{err: err}
 					continue
 				}
 				deps, err := p.Parse(path, data)
 				if err != nil {
+					logger.Printf("parse %s: %v", path, err)
 					results <- result{err: err}
 					continue
 				}
