@@ -200,3 +200,69 @@ dependencies {
 	assertDep(t, deps[1], "junit:junit", "4.13", "dev")
 	assertDep(t, deps[2], "com.google.guava:guava", "32.0", "direct")
 }
+
+func TestPipfile(t *testing.T) {
+	data := []byte(`
+[packages]
+requests = ">=2.28"
+flask = "==2.3.2"
+
+[dev-packages]
+pytest = ">=7.0"
+`)
+	deps, err := pipfile{}.Parse("Pipfile", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(deps) != 3 {
+		t.Fatalf("expected 3 deps, got %d: %+v", len(deps), deps)
+	}
+	assertDep(t, deps[0], "requests", ">=2.28", "direct")
+	assertDep(t, deps[1], "flask", "==2.3.2", "direct")
+	assertDep(t, deps[2], "pytest", ">=7.0", "dev")
+}
+
+func TestPyprojectToml(t *testing.T) {
+	data := []byte(`
+[project]
+name = "myapp"
+dependencies = [
+    "requests>=2.28",
+    "flask==2.3.2",
+    "numpy",
+]
+`)
+	deps, err := pyprojectToml{}.Parse("pyproject.toml", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(deps) != 3 {
+		t.Fatalf("expected 3 deps, got %d: %+v", len(deps), deps)
+	}
+	assertDep(t, deps[0], "requests", ">=2.28", "direct")
+	assertDep(t, deps[1], "flask", "==2.3.2", "direct")
+	assertDep(t, deps[2], "numpy", "", "direct")
+}
+
+func TestPubspecYaml(t *testing.T) {
+	data := []byte(`name: myapp
+dependencies:
+  http: ^0.13.5
+  provider: ^6.0.0
+
+dev_dependencies:
+  build_runner: ^2.4.0
+  mockito: ^5.4.0
+`)
+	deps, err := pubspecYaml{}.Parse("pubspec.yaml", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(deps) != 4 {
+		t.Fatalf("expected 4 deps, got %d: %+v", len(deps), deps)
+	}
+	assertDep(t, deps[0], "http", "^0.13.5", "direct")
+	assertDep(t, deps[1], "provider", "^6.0.0", "direct")
+	assertDep(t, deps[2], "build_runner", "^2.4.0", "dev")
+	assertDep(t, deps[3], "mockito", "^5.4.0", "dev")
+}
