@@ -193,7 +193,7 @@ func parseYarnLock(data []byte) map[string]string {
 }
 
 // pnpm-lock.yaml: packages/<name>/<version> or dependencies: <name>: <version>
-var pnpmDepRe = regexp.MustCompile(`(?m)^\s+'?(@?[^':\s]+)'?:\s+(.+)`)
+var pnpmDepRe = regexp.MustCompile(`(?m)^[ \t]+'?(@?[^':\s]+)'?:\s+(.+)`)
 
 func resolvePnpmLock(dir string, p *model.Project) bool {
 	path := filepath.Join(dir, "pnpm-lock.yaml")
