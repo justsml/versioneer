@@ -5,8 +5,8 @@ import (
 	"io"
 	"sort"
 
-	"github.com/versioneer/versioneer/internal/model"
-	"github.com/versioneer/versioneer/internal/resolver"
+	"github.com/justsml/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/resolver"
 )
 
 type markdownFmt struct{}

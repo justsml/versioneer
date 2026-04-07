@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/versioneer/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/model"
 )
 
 func assertDep(t *testing.T, d model.Dependency, name, version, depType string) {

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/versioneer/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/model"
 )
 
 // lockCache caches parsed lock file data by absolute path.

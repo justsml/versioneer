@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/versioneer/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/model"
 )
 
 type jsonlFmt struct{}

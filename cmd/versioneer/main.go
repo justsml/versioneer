@@ -6,11 +6,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/versioneer/versioneer/internal/matcher"
-	"github.com/versioneer/versioneer/internal/model"
-	"github.com/versioneer/versioneer/internal/output"
-	"github.com/versioneer/versioneer/internal/resolver"
-	"github.com/versioneer/versioneer/internal/scanner"
+	"github.com/justsml/versioneer/internal/matcher"
+	"github.com/justsml/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/output"
+	"github.com/justsml/versioneer/internal/resolver"
+	"github.com/justsml/versioneer/internal/scanner"
 )
 
 func main() {

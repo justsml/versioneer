@@ -1,6 +1,6 @@
 package output
 
-import "github.com/versioneer/versioneer/internal/model"
+import "github.com/justsml/versioneer/internal/model"
 
 // anyResolved returns true if any dependency has a resolved version.
 func anyResolved(r *model.ScanResult) bool {

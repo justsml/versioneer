@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/versioneer/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/model"
 )
 
 // depsDirCandidates maps ecosystem -> possible dependency directories to check.

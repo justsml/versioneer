@@ -3,7 +3,7 @@ package parser
 import (
 	"path/filepath"
 
-	"github.com/versioneer/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/model"
 )
 
 // Parser extracts dependencies from a manifest file.

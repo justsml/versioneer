@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/versioneer/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/model"
 )
 
 // Formatter writes scan results to an output stream.

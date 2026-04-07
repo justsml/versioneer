@@ -1,3 +1,3 @@
-module github.com/versioneer/versioneer
+module github.com/justsml/versioneer
 
 go 1.22

@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/versioneer/versioneer/internal/model"
-	"github.com/versioneer/versioneer/internal/parser"
+	"github.com/justsml/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/parser"
 )
 
 // skipDirs are directory names that should never be descended into.

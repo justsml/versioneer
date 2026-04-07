@@ -6,8 +6,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/versioneer/versioneer/internal/model"
-	"github.com/versioneer/versioneer/internal/resolver"
+	"github.com/justsml/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/resolver"
 )
 
 type summaryFmt struct{}

@@ -3,7 +3,7 @@ package parser
 import (
 	"encoding/json"
 
-	"github.com/versioneer/versioneer/internal/model"
+	"github.com/justsml/versioneer/internal/model"
 )
 
 type packageJSON struct{}
