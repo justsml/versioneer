@@ -1,0 +1,66 @@
+package output
+
+import (
+	"fmt"
+	"io"
+	"sort"
+
+	"github.com/versioneer/versioneer/internal/model"
+	"github.com/versioneer/versioneer/internal/resolver"
+)
+
+type markdownFmt struct{}
+
+func (markdownFmt) Format(w io.Writer, result *model.ScanResult) error {
+	hasRes := anyResolved(result)
+	hasTimes := anyTimestamps(result)
+
+	projects := result.Projects
+	sort.Slice(projects, func(i, j int) bool {
+		return projects[i].ManifestFile < projects[j].ManifestFile
+	})
+
+	fmt.Fprintf(w, "# Dependency Audit Report\n\n")
+	fmt.Fprintf(w, "**Root:** `%s`  \n", result.RootDir)
+	fmt.Fprintf(w, "**Projects:** %d | **Dependencies:** %d | **Scan time:** %s\n\n",
+		len(projects), result.TotalDeps, result.ScanDuration)
+
+	for _, p := range projects {
+		fmt.Fprintf(w, "## %s\n\n", p.ManifestFile)
+
+		if hasTimes {
+			fmt.Fprintf(w, "- **Manifest modified:** %s\n", resolver.FormatTime(p.ManifestModified))
+			if p.DepsDir != "" {
+				fmt.Fprintf(w, "- **Deps dir:** `%s` (modified %s)\n", p.DepsDir, resolver.FormatTime(p.DepsDirModified))
+			} else {
+				fmt.Fprintf(w, "- **Deps dir:** _not found_\n")
+			}
+			fmt.Fprintln(w)
+		}
+
+		if len(p.Dependencies) == 0 {
+			fmt.Fprintf(w, "_No dependencies found._\n\n")
+			continue
+		}
+
+		if hasRes {
+			fmt.Fprintf(w, "| Name | Spec | Installed | Type |\n")
+			fmt.Fprintf(w, "|------|------|-----------|------|\n")
+			for _, d := range p.Dependencies {
+				resolved := d.Resolved
+				if resolved == "" {
+					resolved = "—"
+				}
+				fmt.Fprintf(w, "| %s | `%s` | **%s** | %s |\n", d.Name, d.Version, resolved, d.DepType)
+			}
+		} else {
+			fmt.Fprintf(w, "| Name | Version | Type |\n")
+			fmt.Fprintf(w, "|------|---------|------|\n")
+			for _, d := range p.Dependencies {
+				fmt.Fprintf(w, "| %s | %s | %s |\n", d.Name, d.Version, d.DepType)
+			}
+		}
+		fmt.Fprintln(w)
+	}
+	return nil
+}
