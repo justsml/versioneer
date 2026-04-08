@@ -16,25 +16,33 @@ import (
 )
 
 // lockCache caches parsed lock file data by absolute path.
-var lockCache sync.Map // map[string]map[string]string
+// Each entry is a *lockResult computed exactly once via sync.OnceFunc.
+var lockCache sync.Map // map[string]*sync.Once-guarded result
+
+type lockResult struct {
+	data map[string]string
+}
 
 func cachedReadLock(path string, parse func([]byte) map[string]string) (map[string]string, bool) {
-	if v, ok := lockCache.Load(path); ok {
-		m := v.(map[string]string)
-		return m, m != nil
+	// Use LoadOrStore with a sync.Once to ensure each path is parsed exactly once,
+	// even when multiple goroutines request the same lock file concurrently.
+	type entry struct {
+		once   sync.Once
+		result lockResult
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		lockCache.Store(path, (map[string]string)(nil))
-		return nil, false
-	}
-	m := parse(data)
-	if len(m) == 0 {
-		lockCache.Store(path, (map[string]string)(nil))
-		return nil, false
-	}
-	lockCache.Store(path, m)
-	return m, true
+	actual, _ := lockCache.LoadOrStore(path, &entry{})
+	e := actual.(*entry)
+	e.once.Do(func() {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return
+		}
+		m := parse(data)
+		if len(m) > 0 {
+			e.result.data = m
+		}
+	})
+	return e.result.data, e.result.data != nil
 }
 
 // Resolve fills in the Resolved field for all dependencies in the scan result.
