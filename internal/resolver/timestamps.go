@@ -3,6 +3,7 @@ package resolver
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/justsml/versioneer/internal/model"
@@ -103,15 +104,5 @@ func pluralize(n int, unit string) string {
 	if n == 1 {
 		return "1" + unit
 	}
-	return itoa(n) + unit
-}
-
-func itoa(n int) string {
-	if n < 0 {
-		return "-" + itoa(-n)
-	}
-	if n < 10 {
-		return string(rune('0' + n))
-	}
-	return itoa(n/10) + string(rune('0'+n%10))
+	return strconv.Itoa(n) + unit
 }
