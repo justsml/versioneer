@@ -267,6 +267,11 @@ func resolveNodeModules(dir string, p *model.Project) bool {
 
 // --- Go: go.sum has exact versions ---
 
+// resolveGo extracts versions from go.sum.
+// NOTE: go.sum is a checksum database, not a lock file. It may contain stale
+// entries from previously-used versions. For authoritative resolution, run
+// "go list -m all". We prefer non-/go.mod entries (which represent the actual
+// source tree checksum) over /go.mod-only entries.
 func resolveGo(dir string, p *model.Project) {
 	data, err := os.ReadFile(filepath.Join(dir, "go.sum"))
 	if err != nil {
@@ -280,9 +285,13 @@ func resolveGo(dir string, p *model.Project) {
 			continue
 		}
 		name := parts[0]
-		ver := strings.TrimSuffix(parts[1], "/go.mod")
-		// Keep the first (non-/go.mod) entry per module
-		if _, exists := resolved[name]; !exists {
+		raw := parts[1]
+		isGoMod := strings.HasSuffix(raw, "/go.mod")
+		ver := strings.TrimSuffix(raw, "/go.mod")
+		prev, exists := resolved[name]
+		// Prefer non-/go.mod entries; if we only have a /go.mod entry, keep it
+		// as a fallback but let a source-tree entry overwrite it.
+		if !exists || (isGoMod && prev == "") || !isGoMod {
 			resolved[name] = ver
 		}
 	}
