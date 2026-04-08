@@ -90,26 +90,99 @@ func (pipfile) Parse(path string, data []byte) ([]model.Dependency, error) {
 	return deps, nil
 }
 
-// pyproject.toml — lightweight extraction of [project] dependencies
+// pyproject.toml — lightweight extraction of [project] dependencies,
+// [project.optional-dependencies], and [tool.poetry.dependencies].
 type pyprojectToml struct{}
 
 func (pyprojectToml) Parse(path string, data []byte) ([]model.Dependency, error) {
 	var deps []model.Dependency
-	var inDeps bool
+	lines := strings.Split(string(data), "\n")
 
-	for _, raw := range strings.Split(string(data), "\n") {
+	var (
+		inDepArray     bool   // inside dependencies = [ ... ]
+		inOptArray     bool   // inside an optional-dependencies array value
+		inPoetryDeps   bool   // inside [tool.poetry.dependencies]
+		currentSection string
+	)
+
+	for _, raw := range lines {
 		line := strings.TrimSpace(raw)
 
-		if strings.HasPrefix(line, "dependencies") && strings.Contains(line, "[") {
-			inDeps = true
+		// Track TOML sections.
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			currentSection = line[1 : len(line)-1]
+			inDepArray = false
+			inOptArray = false
+			inPoetryDeps = currentSection == "tool.poetry.dependencies"
 			continue
 		}
-		if inDeps {
-			if line == "]" {
-				inDeps = false
+
+		// PEP 621: dependencies = [ ... ]
+		if currentSection == "project" && strings.HasPrefix(line, "dependencies") && strings.Contains(line, "=") {
+			// Check if array starts on this line or next
+			if strings.Contains(line, "[") {
+				inDepArray = true
+			}
+			// Handle inline: dependencies = ["foo>=1.0", "bar"]
+			if strings.Contains(line, "[") && strings.Contains(line, "]") {
+				inDepArray = false
+				for _, dep := range extractInlineArray(line) {
+					name, version := splitPythonDep(dep)
+					if name != "" {
+						deps = append(deps, model.Dependency{
+							Name: name, Version: version,
+							Ecosystem: "python", DepType: "direct", SourceFile: path,
+						})
+					}
+				}
+			}
+			continue
+		}
+
+		// PEP 621: [project.optional-dependencies] section values are arrays
+		if strings.HasPrefix(currentSection, "project.optional-dependencies") {
+			if strings.Contains(line, "=") && strings.Contains(line, "[") {
+				inOptArray = true
+				if strings.Contains(line, "]") {
+					inOptArray = false
+					for _, dep := range extractInlineArray(line) {
+						name, version := splitPythonDep(dep)
+						if name != "" {
+							deps = append(deps, model.Dependency{
+								Name: name, Version: version,
+								Ecosystem: "python", DepType: "optional", SourceFile: path,
+							})
+						}
+					}
+				}
 				continue
 			}
-			// Strip quotes and whitespace: "requests>=2.28"
+			if inOptArray {
+				if line == "]" {
+					inOptArray = false
+					continue
+				}
+				dep := strings.Trim(line, `"', `)
+				if dep == "" {
+					continue
+				}
+				name, version := splitPythonDep(dep)
+				if name != "" {
+					deps = append(deps, model.Dependency{
+						Name: name, Version: version,
+						Ecosystem: "python", DepType: "optional", SourceFile: path,
+					})
+				}
+				continue
+			}
+		}
+
+		// Inside PEP 621 dependencies array
+		if inDepArray {
+			if line == "]" {
+				inDepArray = false
+				continue
+			}
 			dep := strings.Trim(line, `"', `)
 			if dep == "" {
 				continue
@@ -117,14 +190,74 @@ func (pyprojectToml) Parse(path string, data []byte) ([]model.Dependency, error)
 			name, version := splitPythonDep(dep)
 			if name != "" {
 				deps = append(deps, model.Dependency{
-					Name:       name,
-					Version:    version,
-					Ecosystem:  "python",
-					DepType:    "direct",
-					SourceFile: path,
+					Name: name, Version: version,
+					Ecosystem: "python", DepType: "direct", SourceFile: path,
 				})
 			}
+			continue
+		}
+
+		// Poetry: [tool.poetry.dependencies]
+		if inPoetryDeps {
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			name := strings.TrimSpace(parts[0])
+			if name == "python" {
+				continue // skip python version constraint
+			}
+			val := strings.TrimSpace(parts[1])
+			version := ""
+			if strings.HasPrefix(val, `"`) || strings.HasPrefix(val, `'`) {
+				version = strings.Trim(val, `"'`)
+			} else if strings.HasPrefix(val, "{") {
+				// Inline table: {version = "^2.28", optional = true}
+				if m := extractInlineTableVersion(val); m != "" {
+					version = m
+				}
+			}
+			deps = append(deps, model.Dependency{
+				Name: name, Version: version,
+				Ecosystem: "python", DepType: "direct", SourceFile: path,
+			})
 		}
 	}
 	return deps, nil
+}
+
+// extractInlineArray extracts items from a TOML inline array like: key = ["foo>=1.0", "bar"]
+func extractInlineArray(line string) []string {
+	start := strings.Index(line, "[")
+	end := strings.LastIndex(line, "]")
+	if start < 0 || end <= start {
+		return nil
+	}
+	inner := line[start+1 : end]
+	var items []string
+	for _, item := range strings.Split(inner, ",") {
+		item = strings.Trim(strings.TrimSpace(item), `"'`)
+		if item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
+// extractInlineTableVersion extracts version from {version = "^2.28", ...}
+func extractInlineTableVersion(s string) string {
+	s = strings.Trim(s, "{}")
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "version") {
+			kv := strings.SplitN(part, "=", 2)
+			if len(kv) == 2 {
+				return strings.Trim(strings.TrimSpace(kv[1]), `"'`)
+			}
+		}
+	}
+	return ""
 }

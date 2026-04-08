@@ -223,7 +223,8 @@ pytest = ">=7.0"
 }
 
 func TestPyprojectToml(t *testing.T) {
-	data := []byte(`
+	t.Run("PEP621", func(t *testing.T) {
+		data := []byte(`
 [project]
 name = "myapp"
 dependencies = [
@@ -232,16 +233,66 @@ dependencies = [
     "numpy",
 ]
 `)
-	deps, err := pyprojectToml{}.Parse("pyproject.toml", data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(deps) != 3 {
-		t.Fatalf("expected 3 deps, got %d: %+v", len(deps), deps)
-	}
-	assertDep(t, deps[0], "requests", ">=2.28", "direct")
-	assertDep(t, deps[1], "flask", "==2.3.2", "direct")
-	assertDep(t, deps[2], "numpy", "", "direct")
+		deps, err := pyprojectToml{}.Parse("pyproject.toml", data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(deps) != 3 {
+			t.Fatalf("expected 3 deps, got %d: %+v", len(deps), deps)
+		}
+		assertDep(t, deps[0], "requests", ">=2.28", "direct")
+		assertDep(t, deps[1], "flask", "==2.3.2", "direct")
+		assertDep(t, deps[2], "numpy", "", "direct")
+	})
+
+	t.Run("Poetry", func(t *testing.T) {
+		data := []byte(`
+[tool.poetry]
+name = "myapp"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.28"
+celery = {version = "^5.3", optional = true}
+`)
+		deps, err := pyprojectToml{}.Parse("pyproject.toml", data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(deps) != 2 {
+			t.Fatalf("expected 2 deps (python skipped), got %d: %+v", len(deps), deps)
+		}
+		assertDep(t, deps[0], "requests", "^2.28", "direct")
+		assertDep(t, deps[1], "celery", "^5.3", "direct")
+	})
+
+	t.Run("OptionalDependencies", func(t *testing.T) {
+		data := []byte(`
+[project]
+name = "myapp"
+dependencies = [
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "mypy",
+]
+docs = ["sphinx>=6.0"]
+`)
+		deps, err := pyprojectToml{}.Parse("pyproject.toml", data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(deps) != 4 {
+			t.Fatalf("expected 4 deps, got %d: %+v", len(deps), deps)
+		}
+		assertDep(t, deps[0], "requests", ">=2.28", "direct")
+		assertDep(t, deps[1], "pytest", ">=7.0", "optional")
+		assertDep(t, deps[2], "mypy", "", "optional")
+		assertDep(t, deps[3], "sphinx", ">=6.0", "optional")
+	})
 }
 
 func TestPubspecYaml(t *testing.T) {
