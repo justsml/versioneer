@@ -30,14 +30,24 @@ const (
 	DepTest     DepType = "test"
 )
 
+// ResolveSource indicates how a dependency's version was resolved.
+type ResolveSource = string
+
+const (
+	ResolveLockFile ResolveSource = "lockfile" // from a lock file (package-lock.json, yarn.lock, etc.)
+	ResolveDisk     ResolveSource = "disk"     // from on-disk inspection (node_modules, venv, etc.)
+	ResolveExec     ResolveSource = "exec"     // from running a package manager (bun pm ls, etc.)
+)
+
 // Dependency represents a single resolved dependency from a project file.
 type Dependency struct {
-	Name       string    `json:"name"`
-	Version    string    `json:"version"`              // version expression from manifest
-	Resolved   string    `json:"resolved,omitempty"`    // actual installed/locked version
-	Ecosystem  Ecosystem `json:"ecosystem"`
-	DepType    DepType   `json:"dep_type"`
-	SourceFile string    `json:"source_file"`
+	Name       string        `json:"name"`
+	Version    string        `json:"version"`                // version expression from manifest
+	Resolved   string        `json:"resolved,omitempty"`     // actual installed/locked version
+	ResolvedBy ResolveSource `json:"resolved_by,omitempty"`  // how the version was resolved
+	Ecosystem  Ecosystem     `json:"ecosystem"`
+	DepType    DepType       `json:"dep_type"`
+	SourceFile string        `json:"source_file"`
 }
 
 // Project represents a discovered project root with its dependency manifest.

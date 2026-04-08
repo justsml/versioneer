@@ -27,18 +27,19 @@ func (tableFmt) Format(w io.Writer, result *model.ScanResult) error {
 			if resolved == "" {
 				resolved = "—"
 			}
+			via := d.ResolvedBy
 
 			switch {
 			case hasRes && hasTimes:
 				if header == nil {
-					header = []string{"NAME", "SPEC", "INSTALLED", "ECO", "TYPE", "MANIFEST", "DEPS DIR", "SOURCE"}
+					header = []string{"NAME", "SPEC", "INSTALLED", "VIA", "ECO", "TYPE", "MANIFEST", "DEPS DIR", "SOURCE"}
 				}
-				rows = append(rows, []string{d.Name, d.Version, resolved, d.Ecosystem, d.DepType, mAge, dAge, d.SourceFile})
+				rows = append(rows, []string{d.Name, d.Version, resolved, via, d.Ecosystem, d.DepType, mAge, dAge, d.SourceFile})
 			case hasRes:
 				if header == nil {
-					header = []string{"NAME", "SPEC", "INSTALLED", "ECOSYSTEM", "TYPE", "SOURCE"}
+					header = []string{"NAME", "SPEC", "INSTALLED", "VIA", "ECOSYSTEM", "TYPE", "SOURCE"}
 				}
-				rows = append(rows, []string{d.Name, d.Version, resolved, d.Ecosystem, d.DepType, d.SourceFile})
+				rows = append(rows, []string{d.Name, d.Version, resolved, via, d.Ecosystem, d.DepType, d.SourceFile})
 			default:
 				if header == nil {
 					header = []string{"NAME", "VERSION", "ECOSYSTEM", "TYPE", "SOURCE"}

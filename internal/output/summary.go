@@ -15,6 +15,7 @@ type summaryFmt struct{}
 func (summaryFmt) Format(w io.Writer, result *model.ScanResult) error {
 	ecosystems := map[string]int{}
 	depTypes := map[string]int{}
+	resolveSources := map[string]int{}
 	resolved := 0
 	unresolved := 0
 
@@ -24,6 +25,9 @@ func (summaryFmt) Format(w io.Writer, result *model.ScanResult) error {
 			depTypes[d.DepType]++
 			if d.Resolved != "" {
 				resolved++
+				if d.ResolvedBy != "" {
+					resolveSources[d.ResolvedBy]++
+				}
 			} else {
 				unresolved++
 			}
@@ -36,6 +40,11 @@ func (summaryFmt) Format(w io.Writer, result *model.ScanResult) error {
 	if resolved > 0 || unresolved > 0 {
 		fmt.Fprintf(w, "  Resolved:     %d / %d (%.0f%%)\n",
 			resolved, result.TotalDeps, float64(resolved)/float64(max(result.TotalDeps, 1))*100)
+		if len(resolveSources) > 0 {
+			for _, kv := range sortedMap(resolveSources) {
+				fmt.Fprintf(w, "    via %-10s %d\n", kv.key, kv.val)
+			}
+		}
 	}
 	fmt.Fprintf(w, "  Duration:     %s\n\n", result.ScanDuration)
 

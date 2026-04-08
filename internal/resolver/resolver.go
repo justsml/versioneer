@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -128,6 +129,7 @@ func ResolveProject(rootDir string, p *model.Project, logger *log.Logger) {
 
 func resolveNPM(dir string, p *model.Project) {
 	// Walk up from the package dir to find a lock file (handles monorepos).
+	// Priority: package-lock.json > yarn.lock > pnpm-lock.yaml > bun.lock
 	for d := dir; ; {
 		if resolveNPMLockV2(d, p) {
 			return
@@ -136,6 +138,9 @@ func resolveNPM(dir string, p *model.Project) {
 			return
 		}
 		if resolvePnpmLock(d, p) {
+			return
+		}
+		if resolveBunLock(d, p) {
 			return
 		}
 		parent := filepath.Dir(d)
@@ -148,7 +153,10 @@ func resolveNPM(dir string, p *model.Project) {
 		}
 		d = parent
 	}
-	// Fallback: walk up for node_modules too.
+	// Fallback: try bun pm ls (handles bun.lockb binary), then node_modules.
+	if resolveBunExec(dir, p) {
+		return
+	}
 	for d := dir; ; {
 		if resolveNodeModules(d, p) {
 			return
@@ -171,7 +179,7 @@ func resolveNPMLockV2(dir string, p *model.Project) bool {
 	if !ok {
 		return false
 	}
-	return applyResolved(p, resolved)
+	return applyResolved(p, resolved, model.ResolveLockFile)
 }
 
 func parsePackageLock(data []byte) map[string]string {
@@ -299,7 +307,7 @@ func resolveYarnLock(dir string, p *model.Project) bool {
 	if !ok {
 		return false
 	}
-	return applyResolved(p, resolved)
+	return applyResolved(p, resolved, model.ResolveLockFile)
 }
 
 // parseYarnLock uses a line-based state machine instead of regex — avoids the
@@ -396,7 +404,7 @@ func resolvePnpmLock(dir string, p *model.Project) bool {
 	if !ok {
 		return false
 	}
-	return applyResolved(p, resolved)
+	return applyResolved(p, resolved, model.ResolveLockFile)
 }
 
 func parsePnpmLock(data []byte) map[string]string {
@@ -413,11 +421,171 @@ func parsePnpmLock(data []byte) map[string]string {
 	return resolved
 }
 
-func applyResolved(p *model.Project, resolved map[string]string) bool {
+// --- bun: bun.lock (text/JSONC) > bun pm ls (binary lockb) ---
+
+func resolveBunLock(dir string, p *model.Project) bool {
+	path := filepath.Join(dir, "bun.lock")
+	resolved, ok := cachedReadLock(path, parseBunLock)
+	if !ok {
+		return false
+	}
+	return applyResolved(p, resolved, model.ResolveLockFile)
+}
+
+// parseBunLock parses the JSONC text lock file introduced in Bun v1.2+.
+// Structure: { "packages": { "<key>": ["<name>@<version>", ...], ... } }
+// The resolved version is extracted by splitting the first array element on its last '@'.
+func parseBunLock(data []byte) map[string]string {
+	clean := stripJSONC(data)
+
+	var lock struct {
+		Packages map[string][]json.RawMessage `json:"packages"`
+	}
+	if json.Unmarshal(clean, &lock) != nil {
+		return nil
+	}
+
+	resolved := make(map[string]string, len(lock.Packages))
+	for _, entries := range lock.Packages {
+		if len(entries) == 0 {
+			continue
+		}
+		// First element is always "name@resolved-version".
+		var spec string
+		if json.Unmarshal(entries[0], &spec) != nil || spec == "" {
+			continue
+		}
+		name, ver := splitLastAt(spec)
+		// Skip workspace/git/link entries — only keep semver-like versions.
+		if name == "" || ver == "" || !isSemverish(ver) {
+			continue
+		}
+		resolved[name] = ver
+	}
+	return resolved
+}
+
+// isSemverish returns true if v starts with a digit (e.g. "4.21.2").
+func isSemverish(v string) bool {
+	return len(v) > 0 && v[0] >= '0' && v[0] <= '9'
+}
+
+// resolveBunExec shells out to `bun pm ls` to resolve versions when only the
+// binary bun.lockb is present. Only runs if bun is on PATH and bun.lockb exists.
+func resolveBunExec(dir string, p *model.Project) bool {
+	// Quick gate: only try if bun.lockb exists and no deps are already resolved.
+	if _, err := os.Stat(filepath.Join(dir, "bun.lockb")); err != nil {
+		return false
+	}
+	bunPath, err := exec.LookPath("bun")
+	if err != nil {
+		return false
+	}
+
+	cmd := exec.Command(bunPath, "pm", "ls")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	resolved := parseBunPmLs(out)
+	if len(resolved) == 0 {
+		return false
+	}
+	return applyResolved(p, resolved, model.ResolveExec)
+}
+
+// parseBunPmLs parses the tree output of `bun pm ls`.
+// Lines look like: ├── express@4.21.2 or └── @types/node@22.13.4
+func parseBunPmLs(data []byte) map[string]string {
+	resolved := make(map[string]string, 64)
+	sc := bufio.NewScanner(bytes.NewReader(data))
+	for sc.Scan() {
+		line := sc.Text()
+		// Find the package spec after tree-drawing characters.
+		// Look for the last occurrence of "── " which precedes the spec.
+		idx := strings.LastIndex(line, "── ")
+		if idx < 0 {
+			continue
+		}
+		spec := strings.TrimSpace(line[idx+len("── "):])
+		if spec == "" {
+			continue
+		}
+		name, ver := splitLastAt(spec)
+		if name != "" && ver != "" {
+			resolved[name] = ver
+		}
+	}
+	return resolved
+}
+
+// splitLastAt splits "name@version" on the last '@', correctly handling scoped
+// packages like "@babel/core@7.26.0".
+func splitLastAt(s string) (name, version string) {
+	i := strings.LastIndexByte(s, '@')
+	if i <= 0 {
+		return s, ""
+	}
+	return s[:i], s[i+1:]
+}
+
+// stripJSONC removes // line comments and trailing commas from JSONC so that
+// encoding/json can parse it. Preserves the zero-dependency constraint.
+func stripJSONC(data []byte) []byte {
+	out := make([]byte, 0, len(data))
+	i := 0
+	for i < len(data) {
+		// Skip string literals (don't strip inside strings).
+		if data[i] == '"' {
+			out = append(out, '"')
+			i++
+			for i < len(data) {
+				out = append(out, data[i])
+				if data[i] == '\\' {
+					i++
+					if i < len(data) {
+						out = append(out, data[i])
+					}
+				} else if data[i] == '"' {
+					i++
+					break
+				}
+				i++
+			}
+			continue
+		}
+		// Strip // line comments.
+		if i+1 < len(data) && data[i] == '/' && data[i+1] == '/' {
+			for i < len(data) && data[i] != '\n' {
+				i++
+			}
+			continue
+		}
+		// Strip trailing commas before } or ].
+		if data[i] == ',' {
+			j := i + 1
+			for j < len(data) && (data[j] == ' ' || data[j] == '\t' || data[j] == '\n' || data[j] == '\r') {
+				j++
+			}
+			if j < len(data) && (data[j] == '}' || data[j] == ']') {
+				i++ // skip the comma
+				continue
+			}
+		}
+		out = append(out, data[i])
+		i++
+	}
+	return out
+}
+
+func applyResolved(p *model.Project, resolved map[string]string, source model.ResolveSource) bool {
 	applied := false
 	for i := range p.Dependencies {
 		if v, ok := resolved[p.Dependencies[i].Name]; ok {
 			p.Dependencies[i].Resolved = v
+			p.Dependencies[i].ResolvedBy = source
 			applied = true
 		}
 	}
@@ -441,6 +609,7 @@ func resolveNodeModules(dir string, p *model.Project) bool {
 		}
 		if json.Unmarshal(data, &pkg) == nil && pkg.Version != "" {
 			p.Dependencies[i].Resolved = pkg.Version
+			p.Dependencies[i].ResolvedBy = model.ResolveDisk
 			found = true
 		}
 	}
@@ -483,6 +652,7 @@ func resolveGo(dir string, p *model.Project) {
 	for i := range p.Dependencies {
 		if v, ok := resolved[p.Dependencies[i].Name]; ok {
 			p.Dependencies[i].Resolved = v
+			p.Dependencies[i].ResolvedBy = model.ResolveLockFile
 		}
 	}
 }
@@ -498,7 +668,7 @@ func resolveRust(dir string, p *model.Project) {
 	if !ok {
 		return
 	}
-	applyResolved(p, resolved)
+	applyResolved(p, resolved, model.ResolveLockFile)
 }
 
 func parseCargoLock(data []byte) map[string]string {
@@ -562,6 +732,7 @@ func resolvePython(dir string, p *model.Project) {
 			normalized := normalizePythonName(p.Dependencies[i].Name)
 			if v, ok := resolved[normalized]; ok {
 				p.Dependencies[i].Resolved = v
+				p.Dependencies[i].ResolvedBy = model.ResolveDisk
 			}
 		}
 		return

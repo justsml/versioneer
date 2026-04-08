@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -139,6 +140,128 @@ func TestNormalizePythonName(t *testing.T) {
 		if got := normalizePythonName(tt.input); got != tt.want {
 			t.Errorf("normalizePythonName(%q) = %q, want %q", tt.input, got, tt.want)
 		}
+	}
+}
+
+func TestParseBunLock(t *testing.T) {
+	data := []byte(`{
+  "lockfileVersion": 1,
+  // this is a JSONC comment
+  "workspaces": {
+    "": {
+      "name": "myapp",
+      "dependencies": {
+        "express": "^4.21.0",
+        "@babel/core": "^7.26.0",
+      },
+    },
+  },
+  "packages": {
+    "express@4.21.2": ["express@4.21.2", "", { "dependencies": { "accepts": "~1.3.8" } }, "sha512-abc123"],
+    "@babel/core@7.26.0": ["@babel/core@7.26.0", "", {}, "sha512-def456"],
+    "accepts@1.3.8": ["accepts@1.3.8", "", {}, "sha512-ghi789"],
+  },
+}`)
+	resolved := parseBunLock(data)
+	if resolved == nil {
+		t.Fatal("expected non-nil result")
+	}
+	tests := map[string]string{
+		"express":     "4.21.2",
+		"@babel/core": "7.26.0",
+		"accepts":     "1.3.8",
+	}
+	for name, want := range tests {
+		if got := resolved[name]; got != want {
+			t.Errorf("parseBunLock[%s] = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestParseBunLockWorkspace(t *testing.T) {
+	// Workspace entries have only 1 element — they should be skipped (no version to extract).
+	data := []byte(`{
+  "lockfileVersion": 1,
+  "packages": {
+    "my-lib@workspace:packages/lib": ["my-lib@workspace:packages/lib"],
+    "express@4.21.2": ["express@4.21.2", "", {}, "sha512-abc"],
+  },
+}`)
+	resolved := parseBunLock(data)
+	if resolved == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if _, exists := resolved["my-lib"]; exists {
+		t.Error("workspace entry should not produce a resolved version")
+	}
+	if got := resolved["express"]; got != "4.21.2" {
+		t.Errorf("express = %q, want 4.21.2", got)
+	}
+}
+
+func TestParseBunPmLs(t *testing.T) {
+	output := []byte(`/home/user/project node_modules (5)
+├── express@4.21.2
+├── @types/node@22.13.4
+├── typescript@5.7.3
+├── @babel/core@7.26.0
+└── lodash@4.17.21
+`)
+	resolved := parseBunPmLs(output)
+	tests := map[string]string{
+		"express":      "4.21.2",
+		"@types/node":  "22.13.4",
+		"typescript":   "5.7.3",
+		"@babel/core":  "7.26.0",
+		"lodash":       "4.17.21",
+	}
+	for name, want := range tests {
+		if got := resolved[name]; got != want {
+			t.Errorf("parseBunPmLs[%s] = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestSplitLastAt(t *testing.T) {
+	tests := []struct {
+		input, name, ver string
+	}{
+		{"express@4.21.2", "express", "4.21.2"},
+		{"@babel/core@7.26.0", "@babel/core", "7.26.0"},
+		{"@types/node@22.13.4", "@types/node", "22.13.4"},
+		{"lodash", "lodash", ""},
+		{"@scope/pkg", "@scope/pkg", ""},
+	}
+	for _, tt := range tests {
+		name, ver := splitLastAt(tt.input)
+		if name != tt.name || ver != tt.ver {
+			t.Errorf("splitLastAt(%q) = (%q, %q), want (%q, %q)", tt.input, name, ver, tt.name, tt.ver)
+		}
+	}
+}
+
+func TestStripJSONC(t *testing.T) {
+	input := []byte(`{
+  // comment
+  "key": "value", // inline comment
+  "arr": [1, 2, 3,],
+  "obj": {"a": 1,},
+  "str": "has // not a comment",
+}`)
+	got := stripJSONC(input)
+	// Verify it's valid JSON now.
+	var v any
+	if err := json.Unmarshal(got, &v); err != nil {
+		t.Fatalf("stripJSONC produced invalid JSON: %v\noutput: %s", err, got)
+	}
+}
+
+func TestParseBunLockEmpty(t *testing.T) {
+	if got := parseBunLock([]byte("not json")); got != nil {
+		t.Errorf("expected nil for invalid input, got %v", got)
+	}
+	if got := parseBunLock([]byte(`{"packages":{}}`)); len(got) != 0 {
+		t.Errorf("expected empty map for empty packages, got %v", got)
 	}
 }
 

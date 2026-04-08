@@ -44,14 +44,14 @@ func (markdownFmt) Format(w io.Writer, result *model.ScanResult) error {
 		}
 
 		if hasRes {
-			fmt.Fprintf(w, "| Name | Spec | Installed | Type |\n")
-			fmt.Fprintf(w, "|------|------|-----------|------|\n")
+			fmt.Fprintf(w, "| Name | Spec | Installed | Via | Type |\n")
+			fmt.Fprintf(w, "|------|------|-----------|-----|------|\n")
 			for _, d := range p.Dependencies {
 				resolved := d.Resolved
 				if resolved == "" {
 					resolved = "—"
 				}
-				fmt.Fprintf(w, "| %s | `%s` | **%s** | %s |\n", d.Name, d.Version, resolved, d.DepType)
+				fmt.Fprintf(w, "| %s | `%s` | **%s** | %s | %s |\n", d.Name, d.Version, resolved, d.ResolvedBy, d.DepType)
 			}
 		} else {
 			fmt.Fprintf(w, "| Name | Version | Type |\n")

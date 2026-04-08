@@ -20,7 +20,7 @@ func (csvFmt) Format(w io.Writer, result *model.ScanResult) error {
 	// Build header dynamically.
 	header := []string{"name", "version"}
 	if hasRes {
-		header = append(header, "resolved")
+		header = append(header, "resolved", "resolved_by")
 	}
 	header = append(header, "ecosystem", "dep_type")
 	if hasTimes {
@@ -36,11 +36,7 @@ func (csvFmt) Format(w io.Writer, result *model.ScanResult) error {
 		for _, d := range p.Dependencies {
 			row := []string{d.Name, d.Version}
 			if hasRes {
-				resolved := d.Resolved
-				if resolved == "" {
-					resolved = ""
-				}
-				row = append(row, resolved)
+				row = append(row, d.Resolved, d.ResolvedBy)
 			}
 			row = append(row, d.Ecosystem, d.DepType)
 			if hasTimes {

@@ -130,6 +130,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error writing output: %v\n", err)
 		os.Exit(2)
 	}
+
+	// Formats that don't embed stats (csv, jsonl) get a stderr summary so
+	// the user still sees project/dep counts in the terminal.
+	switch *format {
+	case "csv", "jsonl":
+		fmt.Fprintf(os.Stderr, "%d dependencies across %d projects (scanned in %s)\n",
+			result.TotalDeps, len(result.Projects), result.ScanDuration)
+	}
 }
 
 func loadRules(inline, filePath string) ([]matcher.Rule, error) {
