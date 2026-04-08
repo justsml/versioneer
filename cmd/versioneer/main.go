@@ -25,6 +25,7 @@ func main() {
 	resolve := flag.Bool("resolve", false, "resolve actual versions from lock files and node_modules")
 	check := flag.String("check", "", "check for vulnerable packages: pkg@>=1.0,<2.0,other-pkg (comma-separated)")
 	checkFile := flag.String("checkfile", "", "file with vulnerable package rules (one per line: pkg@constraint)")
+	gitignore := flag.Bool("gitignore", false, "respect .gitignore and .ignore exclusion files")
 	verbose := flag.Bool("verbose", false, "print diagnostic messages (skipped files, parse errors, resolution failures)")
 
 	flag.Usage = func() {
@@ -58,7 +59,9 @@ func main() {
 		root = flag.Arg(0)
 	}
 
-	result, err := scanner.Scan(ctx, root, logger)
+	result, err := scanner.Scan(ctx, root, logger, scanner.Options{
+		RespectGitignore: *gitignore,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)

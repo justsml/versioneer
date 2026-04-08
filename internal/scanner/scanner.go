@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	ignore "github.com/sabhiram/go-gitignore"
+
 	"github.com/justsml/versioneer/internal/model"
 	"github.com/justsml/versioneer/internal/parser"
 )
@@ -23,11 +25,29 @@ var skipDirs = map[string]struct{}{
 	".vscode": {}, ".next": {}, ".nuxt": {},
 }
 
+// Options controls optional Scan behaviour.
+type Options struct {
+	// RespectGitignore loads .gitignore and .ignore files and excludes
+	// matching paths from the scan.
+	RespectGitignore bool
+}
+
 // Scan walks root in parallel and returns all discovered projects.
 // The context can be used to cancel or timeout the scan.
-func Scan(ctx context.Context, root string, logger *log.Logger) (*model.ScanResult, error) {
+func Scan(ctx context.Context, root string, logger *log.Logger, opts ...Options) (*model.ScanResult, error) {
+	var opt Options
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+
 	start := time.Now()
 	manifests := parser.ManifestFiles()
+
+	// Build hierarchical gitignore checker when requested.
+	var ign *ignoreChecker
+	if opt.RespectGitignore {
+		ign = newIgnoreChecker(root, logger)
+	}
 
 	// Phase 1: walk the tree and collect manifest paths.
 	var paths []string
@@ -38,6 +58,7 @@ func Scan(ctx context.Context, root string, logger *log.Logger) (*model.ScanResu
 		if err != nil {
 			return nil // skip unreadable entries
 		}
+
 		if d.IsDir() {
 			name := d.Name()
 			if strings.HasPrefix(name, ".") && name != "." {
@@ -46,6 +67,17 @@ func Scan(ctx context.Context, root string, logger *log.Logger) (*model.ScanResu
 			if _, skip := skipDirs[name]; skip {
 				return filepath.SkipDir
 			}
+			// Load ignore files from this directory before descending.
+			if ign != nil {
+				ign.loadDir(path)
+				if ign.isIgnored(path, true) {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+
+		if ign != nil && ign.isIgnored(path, false) {
 			return nil
 		}
 		if _, ok := manifests[d.Name()]; ok {
@@ -144,4 +176,54 @@ func Scan(ctx context.Context, root string, logger *log.Logger) (*model.ScanResu
 		TotalDeps:    totalDeps,
 		ScanDuration: time.Since(start),
 	}, nil
+}
+
+// ignoreChecker accumulates .gitignore / .ignore patterns per directory and
+// tests paths against all applicable matchers.
+type ignoreChecker struct {
+	root     string
+	logger   *log.Logger
+	matchers []scopedMatcher
+}
+
+type scopedMatcher struct {
+	dir     string // absolute directory this .gitignore/.ignore lives in
+	matcher *ignore.GitIgnore
+}
+
+func newIgnoreChecker(root string, logger *log.Logger) *ignoreChecker {
+	return &ignoreChecker{root: root, logger: logger}
+}
+
+// loadDir reads .gitignore and .ignore from dir (if they exist) and adds
+// them to the matcher list.
+func (ic *ignoreChecker) loadDir(dir string) {
+	for _, name := range []string{".gitignore", ".ignore"} {
+		path := filepath.Join(dir, name)
+		gi, err := ignore.CompileIgnoreFile(path)
+		if err != nil {
+			continue // file doesn't exist or unreadable — skip silently
+		}
+		ic.matchers = append(ic.matchers, scopedMatcher{dir: dir, matcher: gi})
+		ic.logger.Printf("loaded %s", path)
+	}
+}
+
+// isIgnored returns true if the path matches any applicable ignore pattern.
+func (ic *ignoreChecker) isIgnored(path string, isDir bool) bool {
+	for _, sm := range ic.matchers {
+		rel, err := filepath.Rel(sm.dir, path)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			continue // path not under this matcher's scope
+		}
+		// Append trailing separator for directories so patterns like "dir/" match.
+		check := rel
+		if isDir {
+			check += "/"
+		}
+		if sm.matcher.MatchesPath(check) {
+			return true
+		}
+	}
+	return false
 }
