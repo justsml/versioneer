@@ -77,7 +77,7 @@ func (pipfile) Parse(path string, data []byte) ([]model.Dependency, error) {
 		version := strings.Trim(strings.TrimSpace(parts[1]), `"'`)
 		depType := "direct"
 		if section == "dev-packages" {
-			depType = "dev"
+			depType = model.DepDev
 		}
 		deps = append(deps, model.Dependency{
 			Name:       name,
@@ -131,7 +131,7 @@ func (pyprojectToml) Parse(path string, data []byte) ([]model.Dependency, error)
 					if name != "" {
 						deps = append(deps, model.Dependency{
 							Name: name, Version: version,
-							Ecosystem: "python", DepType: "direct", SourceFile: path,
+							Ecosystem: model.EcoPython, DepType: model.DepDirect, SourceFile: path,
 						})
 					}
 				}
@@ -150,7 +150,7 @@ func (pyprojectToml) Parse(path string, data []byte) ([]model.Dependency, error)
 						if name != "" {
 							deps = append(deps, model.Dependency{
 								Name: name, Version: version,
-								Ecosystem: "python", DepType: "optional", SourceFile: path,
+								Ecosystem: model.EcoPython, DepType: model.DepOptional, SourceFile: path,
 							})
 						}
 					}
@@ -170,7 +170,7 @@ func (pyprojectToml) Parse(path string, data []byte) ([]model.Dependency, error)
 				if name != "" {
 					deps = append(deps, model.Dependency{
 						Name: name, Version: version,
-						Ecosystem: "python", DepType: "optional", SourceFile: path,
+						Ecosystem: model.EcoPython, DepType: model.DepOptional, SourceFile: path,
 					})
 				}
 				continue
@@ -191,7 +191,7 @@ func (pyprojectToml) Parse(path string, data []byte) ([]model.Dependency, error)
 			if name != "" {
 				deps = append(deps, model.Dependency{
 					Name: name, Version: version,
-					Ecosystem: "python", DepType: "direct", SourceFile: path,
+					Ecosystem: model.EcoPython, DepType: model.DepDirect, SourceFile: path,
 				})
 			}
 			continue
@@ -222,7 +222,7 @@ func (pyprojectToml) Parse(path string, data []byte) ([]model.Dependency, error)
 			}
 			deps = append(deps, model.Dependency{
 				Name: name, Version: version,
-				Ecosystem: "python", DepType: "direct", SourceFile: path,
+				Ecosystem: model.EcoPython, DepType: model.DepDirect, SourceFile: path,
 			})
 		}
 	}

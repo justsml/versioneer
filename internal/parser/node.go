@@ -28,17 +28,17 @@ func (packageJSON) Parse(path string, data []byte) ([]model.Dependency, error) {
 			deps = append(deps, model.Dependency{
 				Name:       name,
 				Version:    version,
-				Ecosystem:  "npm",
+				Ecosystem:  model.EcoNPM,
 				DepType:    depType,
 				SourceFile: path,
 			})
 		}
 	}
 
-	add(pkg.Dependencies, "direct")
-	add(pkg.DevDependencies, "dev")
-	add(pkg.PeerDependencies, "peer")
-	add(pkg.OptionalDependencies, "optional")
+	add(pkg.Dependencies, model.DepDirect)
+	add(pkg.DevDependencies, model.DepDev)
+	add(pkg.PeerDependencies, model.DepPeer)
+	add(pkg.OptionalDependencies, model.DepOptional)
 
 	return deps, nil
 }

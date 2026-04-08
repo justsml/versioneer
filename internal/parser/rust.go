@@ -23,11 +23,11 @@ func (cargoToml) Parse(path string, data []byte) ([]model.Dependency, error) {
 		depType := ""
 		switch section {
 		case "dependencies":
-			depType = "direct"
+			depType = model.DepDirect
 		case "dev-dependencies":
-			depType = "dev"
+			depType = model.DepDev
 		case "build-dependencies":
-			depType = "build"
+			depType = model.DepBuild
 		default:
 			continue
 		}
@@ -46,7 +46,7 @@ func (cargoToml) Parse(path string, data []byte) ([]model.Dependency, error) {
 		deps = append(deps, model.Dependency{
 			Name:       name,
 			Version:    version,
-			Ecosystem:  "rust",
+			Ecosystem:  model.EcoRust,
 			DepType:    depType,
 			SourceFile: path,
 		})

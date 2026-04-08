@@ -29,17 +29,17 @@ func (pomXML) Parse(path string, data []byte) ([]model.Dependency, error) {
 
 	deps := make([]model.Dependency, 0, len(pom.Dependencies.Dep))
 	for _, d := range pom.Dependencies.Dep {
-		depType := "direct"
+		depType := model.DepDirect
 		switch d.Scope {
 		case "test":
-			depType = "dev"
+			depType = model.DepDev
 		case "provided", "runtime", "system":
 			depType = d.Scope
 		}
 		deps = append(deps, model.Dependency{
 			Name:       d.GroupID + ":" + d.ArtifactID,
 			Version:    d.Version,
-			Ecosystem:  "java",
+			Ecosystem:  model.EcoJava,
 			DepType:    depType,
 			SourceFile: path,
 		})
@@ -70,15 +70,15 @@ func (gradle) Parse(path string, data []byte) ([]model.Dependency, error) {
 			version = parts[2]
 		}
 
-		depType := "direct"
+		depType := model.DepDirect
 		if strings.Contains(m[0], "test") || strings.Contains(m[0], "Test") {
-			depType = "dev"
+			depType = model.DepDev
 		}
 
 		deps = append(deps, model.Dependency{
 			Name:       name,
 			Version:    version,
-			Ecosystem:  "java",
+			Ecosystem:  model.EcoJava,
 			DepType:    depType,
 			SourceFile: path,
 		})

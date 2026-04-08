@@ -31,7 +31,7 @@ func (goMod) Parse(path string, data []byte) ([]model.Dependency, error) {
 				deps = append(deps, model.Dependency{
 					Name:       parts[1],
 					Version:    parts[2],
-					Ecosystem:  "go",
+					Ecosystem:  model.EcoGo,
 					DepType:    depTypeGo(line),
 					SourceFile: path,
 				})
@@ -46,7 +46,7 @@ func (goMod) Parse(path string, data []byte) ([]model.Dependency, error) {
 				deps = append(deps, model.Dependency{
 					Name:       parts[0],
 					Version:    parts[1],
-					Ecosystem:  "go",
+					Ecosystem:  model.EcoGo,
 					DepType:    depTypeGo(raw),
 					SourceFile: path,
 				})
@@ -58,9 +58,9 @@ func (goMod) Parse(path string, data []byte) ([]model.Dependency, error) {
 
 func depTypeGo(line string) string {
 	if strings.Contains(line, "// indirect") {
-		return "indirect"
+		return model.DepIndirect
 	}
-	return "direct"
+	return model.DepDirect
 }
 
 func stripComment(s string) string {

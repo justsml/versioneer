@@ -26,8 +26,8 @@ func (composerJSON) Parse(path string, data []byte) ([]model.Dependency, error) 
 		deps = append(deps, model.Dependency{
 			Name:       name,
 			Version:    version,
-			Ecosystem:  "php",
-			DepType:    "direct",
+			Ecosystem:  model.EcoPHP,
+			DepType:    model.DepDirect,
 			SourceFile: path,
 		})
 	}
@@ -35,8 +35,8 @@ func (composerJSON) Parse(path string, data []byte) ([]model.Dependency, error) 
 		deps = append(deps, model.Dependency{
 			Name:       name,
 			Version:    version,
-			Ecosystem:  "php",
-			DepType:    "dev",
+			Ecosystem:  model.EcoPHP,
+			DepType:    model.DepDev,
 			SourceFile: path,
 		})
 	}

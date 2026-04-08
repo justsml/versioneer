@@ -19,7 +19,7 @@ import (
 )
 
 var supportedResolvers = map[string]bool{
-	"npm": true, "go": true, "rust": true, "python": true,
+	model.EcoNPM: true, model.EcoGo: true, model.EcoRust: true, model.EcoPython: true,
 }
 
 func hasResolver(ecosystem string) bool {
@@ -108,13 +108,13 @@ func resolveProject(rootDir string, p *model.Project, logger *log.Logger) {
 	projectDir := filepath.Dir(absManifest)
 
 	switch p.Ecosystem {
-	case "npm":
+	case model.EcoNPM:
 		resolveNPM(projectDir, p)
-	case "go":
+	case model.EcoGo:
 		resolveGo(projectDir, p)
-	case "rust":
+	case model.EcoRust:
 		resolveRust(projectDir, p)
-	case "python":
+	case model.EcoPython:
 		resolvePython(projectDir, p)
 	default:
 		logger.Printf("resolve: no resolver for ecosystem %q (%s)", p.Ecosystem, p.ManifestFile)

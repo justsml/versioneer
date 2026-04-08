@@ -19,11 +19,11 @@ func (gemfile) Parse(path string, data []byte) ([]model.Dependency, error) {
 		line := strings.TrimSpace(raw)
 
 		if strings.HasPrefix(line, "group") && strings.Contains(line, ":development") {
-			inGroup = "dev"
+			inGroup = model.DepDev
 			continue
 		}
 		if strings.HasPrefix(line, "group") && strings.Contains(line, ":test") {
-			inGroup = "dev"
+			inGroup = model.DepDev
 			continue
 		}
 		if line == "end" {
@@ -36,15 +36,15 @@ func (gemfile) Parse(path string, data []byte) ([]model.Dependency, error) {
 			continue
 		}
 
-		depType := "direct"
-		if inGroup == "dev" {
-			depType = "dev"
+		depType := model.DepDirect
+		if inGroup == model.DepDev {
+			depType = model.DepDev
 		}
 
 		deps = append(deps, model.Dependency{
 			Name:       m[1],
 			Version:    m[2],
-			Ecosystem:  "ruby",
+			Ecosystem:  model.EcoRuby,
 			DepType:    depType,
 			SourceFile: path,
 		})

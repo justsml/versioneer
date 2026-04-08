@@ -18,9 +18,9 @@ func (pubspecYaml) Parse(path string, data []byte) ([]model.Dependency, error) {
 		// Top-level keys (no leading whitespace)
 		if len(raw) > 0 && raw[0] != ' ' && raw[0] != '\t' {
 			if strings.HasPrefix(trimmed, "dependencies:") {
-				section = "direct"
+				section = model.DepDirect
 			} else if strings.HasPrefix(trimmed, "dev_dependencies:") {
-				section = "dev"
+				section = model.DepDev
 			} else {
 				section = ""
 			}
@@ -54,7 +54,7 @@ func (pubspecYaml) Parse(path string, data []byte) ([]model.Dependency, error) {
 		deps = append(deps, model.Dependency{
 			Name:       name,
 			Version:    version,
-			Ecosystem:  "dart",
+			Ecosystem:  model.EcoDart,
 			DepType:    section,
 			SourceFile: path,
 		})

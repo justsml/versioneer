@@ -2,14 +2,42 @@ package model
 
 import "time"
 
+// Ecosystem identifies a package manager ecosystem.
+type Ecosystem = string
+
+const (
+	EcoNPM    Ecosystem = "npm"
+	EcoGo     Ecosystem = "go"
+	EcoPython Ecosystem = "python"
+	EcoRust   Ecosystem = "rust"
+	EcoRuby   Ecosystem = "ruby"
+	EcoJava   Ecosystem = "java"
+	EcoPHP    Ecosystem = "php"
+	EcoDart   Ecosystem = "dart"
+)
+
+// DepType classifies how a dependency is used.
+type DepType = string
+
+const (
+	DepDirect   DepType = "direct"
+	DepDev      DepType = "dev"
+	DepIndirect DepType = "indirect"
+	DepPeer     DepType = "peer"
+	DepOptional DepType = "optional"
+	DepBuild    DepType = "build"
+	DepRuntime  DepType = "runtime"
+	DepTest     DepType = "test"
+)
+
 // Dependency represents a single resolved dependency from a project file.
 type Dependency struct {
-	Name       string `json:"name"`
-	Version    string `json:"version"`              // version expression from manifest
-	Resolved   string `json:"resolved,omitempty"`    // actual installed/locked version
-	Ecosystem  string `json:"ecosystem"`             // "go", "npm", "python", "rust", "ruby", "java"
-	DepType    string `json:"dep_type"`              // "direct", "dev", "indirect", "optional"
-	SourceFile string `json:"source_file"`
+	Name       string    `json:"name"`
+	Version    string    `json:"version"`              // version expression from manifest
+	Resolved   string    `json:"resolved,omitempty"`    // actual installed/locked version
+	Ecosystem  Ecosystem `json:"ecosystem"`
+	DepType    DepType   `json:"dep_type"`
+	SourceFile string    `json:"source_file"`
 }
 
 // Project represents a discovered project root with its dependency manifest.
