@@ -153,6 +153,20 @@ internal/
 - **Streaming output** — formatters write directly to `io.Writer`, no intermediate buffering
 - **Monorepo-aware** — lock files and `node_modules` lookups walk up to the repo root, stopping at `.git` boundaries
 
+## Similar tools
+
+| Tool | Description | Stars | Downloads |
+| ---- | ----------- | ----- | --------- |
+| [Snyk CLI](https://github.com/snyk/cli) | Developer-first security tool for finding and fixing vulnerabilities in dependencies, containers, and IaC | [![GitHub Stars](https://img.shields.io/github/stars/snyk/cli?style=flat-square)](https://github.com/snyk/cli) | [![npm](https://img.shields.io/npm/dw/snyk?style=flat-square)](https://www.npmjs.com/package/snyk) |
+| [Trivy](https://github.com/aquasecurity/trivy) | All-in-one security scanner for vulnerabilities, misconfigurations, secrets, and SBOM | [![GitHub Stars](https://img.shields.io/github/stars/aquasecurity/trivy?style=flat-square)](https://github.com/aquasecurity/trivy) | — |
+| [Grype](https://github.com/anchore/grype) | Vulnerability scanner for container images and filesystems | [![GitHub Stars](https://img.shields.io/github/stars/anchore/grype?style=flat-square)](https://github.com/anchore/grype) | — |
+| [OSV-Scanner](https://github.com/google/osv-scanner) | Google-backed scanner using the OSV database for known vulnerabilities | [![GitHub Stars](https://img.shields.io/github/stars/google/osv-scanner?style=flat-square)](https://github.com/google/osv-scanner) | — |
+| [OWASP Dependency-Check](https://github.com/jeremylong/DependencyCheck) | SCA tool that detects publicly disclosed vulnerabilities in project dependencies | [![GitHub Stars](https://img.shields.io/github/stars/jeremylong/DependencyCheck?style=flat-square)](https://github.com/jeremylong/DependencyCheck) | — |
+| [Socket CLI](https://github.com/SocketDev/socket-cli) | Detects supply chain attacks, malware, and risky dependencies proactively | [![GitHub Stars](https://img.shields.io/github/stars/SocketDev/socket-cli?style=flat-square)](https://github.com/SocketDev/socket-cli) | [![npm](https://img.shields.io/npm/dw/socket?style=flat-square)](https://www.npmjs.com/package/socket) |
+| [Retire.js](https://github.com/RetireJS/retire.js) | Detects JavaScript libraries with known vulnerabilities | [![GitHub Stars](https://img.shields.io/github/stars/RetireJS/retire.js?style=flat-square)](https://github.com/RetireJS/retire.js) | [![npm](https://img.shields.io/npm/dw/retire?style=flat-square)](https://www.npmjs.com/package/retire) |
+| [safety](https://github.com/pyupio/safety) | Python dependency checker scanning against the Safety DB | [![GitHub Stars](https://img.shields.io/github/stars/pyupio/safety?style=flat-square)](https://github.com/pyupio/safety) | — |
+| [audit.js](https://github.com/sonatype-nexus-community/auditjs) | Sonatype-powered auditor for npm packages using the OSS Index | [![GitHub Stars](https://img.shields.io/github/stars/sonatype-nexus-community/auditjs?style=flat-square)](https://github.com/sonatype-nexus-community/auditjs) | [![npm](https://img.shields.io/npm/dw/auditjs?style=flat-square)](https://www.npmjs.com/package/auditjs) |
+
 ## Contributing
 
 ```sh

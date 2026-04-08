@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	ignore "github.com/sabhiram/go-gitignore"
-
 	"github.com/justsml/versioneer/internal/model"
 	"github.com/justsml/versioneer/internal/parser"
 )
@@ -185,52 +183,60 @@ func Scan(ctx context.Context, root string, logger *log.Logger, opts ...Options)
 	}, nil
 }
 
-// ignoreChecker accumulates .gitignore / .ignore patterns per directory and
-// tests paths against all applicable matchers.
+type ignoreRule struct {
+	dir, pattern string
+	negate, dirOnly bool
+}
+
 type ignoreChecker struct {
-	root     string
-	logger   *log.Logger
-	matchers []scopedMatcher
+	logger *log.Logger
+	rules  []ignoreRule
 }
 
-type scopedMatcher struct {
-	dir     string // absolute directory this .gitignore/.ignore lives in
-	matcher *ignore.GitIgnore
+func newIgnoreChecker(_ string, logger *log.Logger) *ignoreChecker {
+	return &ignoreChecker{logger: logger}
 }
 
-func newIgnoreChecker(root string, logger *log.Logger) *ignoreChecker {
-	return &ignoreChecker{root: root, logger: logger}
-}
-
-// loadDir reads .gitignore and .ignore from dir (if they exist) and adds
-// them to the matcher list.
 func (ic *ignoreChecker) loadDir(dir string) {
 	for _, name := range []string{".gitignore", ".ignore"} {
-		path := filepath.Join(dir, name)
-		gi, err := ignore.CompileIgnoreFile(path)
+		data, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
-			continue // file doesn't exist or unreadable — skip silently
+			continue
 		}
-		ic.matchers = append(ic.matchers, scopedMatcher{dir: dir, matcher: gi})
-		ic.logger.Printf("loaded %s", path)
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimRight(line, " \t\r")
+			if line == "" || line[0] == '#' {
+				continue
+			}
+			r := ignoreRule{dir: dir}
+			if line[0] == '!' { r.negate = true; line = line[1:] }
+			if strings.HasSuffix(line, "/") { r.dirOnly = true; line = strings.TrimSuffix(line, "/") }
+			r.pattern = line
+			ic.rules = append(ic.rules, r)
+		}
+		ic.logger.Printf("loaded %s", filepath.Join(dir, name))
 	}
 }
 
-// isIgnored returns true if the path matches any applicable ignore pattern.
 func (ic *ignoreChecker) isIgnored(path string, isDir bool) bool {
-	for _, sm := range ic.matchers {
-		rel, err := filepath.Rel(sm.dir, path)
-		if err != nil || strings.HasPrefix(rel, "..") {
-			continue // path not under this matcher's scope
-		}
-		// Append trailing separator for directories so patterns like "dir/" match.
-		check := rel
-		if isDir {
-			check += "/"
-		}
-		if sm.matcher.MatchesPath(check) {
-			return true
-		}
+	matched := false
+	for _, r := range ic.rules {
+		if r.dirOnly && !isDir { continue }
+		rel, err := filepath.Rel(r.dir, path)
+		if err != nil || strings.HasPrefix(rel, "..") { continue }
+		if matchIgnore(r.pattern, rel) { matched = !r.negate }
+	}
+	return matched
+}
+
+func matchIgnore(pattern, rel string) bool {
+	// Strip leading slash — anchors to the .gitignore's directory (already scoped).
+	pat := strings.TrimPrefix(pattern, "/")
+	// Flatten **/ to match at any depth via basename fallback.
+	flat := strings.ReplaceAll(pat, "**/", "")
+	if ok, _ := filepath.Match(flat, filepath.Base(rel)); ok { return true }
+	if strings.Contains(pat, "/") {
+		if ok, _ := filepath.Match(flat, rel); ok { return true }
 	}
 	return false
 }
