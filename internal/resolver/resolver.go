@@ -3,6 +3,7 @@
 package resolver
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -230,7 +231,10 @@ func parseYarnLock(data []byte) map[string]string {
 }
 
 // pnpm-lock.yaml: packages/<name>/<version> or dependencies: <name>: <version>
-var pnpmDepRe = regexp.MustCompile(`(?m)^[ \t]+'?(@?[^':\s]+)'?:\s+(.+)`)
+// pnpmDepRe matches dependency entries in pnpm-lock.yaml.
+// The value must start with a digit (version) to avoid matching metadata fields.
+var pnpmDepRe = regexp.MustCompile(`(?m)^[ \t]+'?(@?[^':\s]+)'?:\s+(\d[^\s]*)`)
+
 
 func resolvePnpmLock(dir string, p *model.Project) bool {
 	path := filepath.Join(dir, "pnpm-lock.yaml")
@@ -245,13 +249,12 @@ func parsePnpmLock(data []byte) map[string]string {
 	resolved := map[string]string{}
 	for _, m := range pnpmDepRe.FindAllStringSubmatch(string(data), -1) {
 		name := m[1]
-		val := strings.TrimSpace(m[2])
+		val := m[2]
+		// Strip pnpm peer-dep suffix like "1.2.3(react@18.0.0)"
 		if idx := strings.Index(val, "("); idx > 0 {
 			val = val[:idx]
 		}
-		if len(val) > 0 && val[0] >= '0' && val[0] <= '9' {
-			resolved[name] = val
-		}
+		resolved[name] = val
 	}
 	return resolved
 }
@@ -298,14 +301,16 @@ func resolveNodeModules(dir string, p *model.Project) bool {
 // "go list -m all". We prefer non-/go.mod entries (which represent the actual
 // source tree checksum) over /go.mod-only entries.
 func resolveGo(dir string, p *model.Project) {
-	data, err := os.ReadFile(filepath.Join(dir, "go.sum"))
+	f, err := os.Open(filepath.Join(dir, "go.sum"))
 	if err != nil {
 		return
 	}
+	defer f.Close()
 
 	resolved := map[string]string{}
-	for _, line := range strings.Split(string(data), "\n") {
-		parts := strings.Fields(line)
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		parts := strings.Fields(sc.Text())
 		if len(parts) < 2 {
 			continue
 		}
