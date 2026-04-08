@@ -94,12 +94,13 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error loading rules: %v\n", err)
 			os.Exit(2)
 		}
-		hits := checkVulns(result, rules)
+		matched, hits := checkVulns(result, rules)
 		if hits == 0 {
 			fmt.Fprintf(os.Stderr, "No matches found for %d rules across %d projects.\n",
 				len(rules), len(result.Projects))
 			os.Exit(0)
 		}
+		result = matched
 		fmt.Fprintf(os.Stderr, "FOUND %d matching dependencies across rules.\n", hits)
 		// Exit 1 when hits found (useful for CI).
 		defer os.Exit(1)
@@ -136,8 +137,9 @@ func loadRules(inline, filePath string) ([]matcher.Rule, error) {
 	return rules, nil
 }
 
-// checkVulns filters the result in-place to only matching deps, returns hit count.
-func checkVulns(result *model.ScanResult, rules []matcher.Rule) int {
+// checkVulns returns a new ScanResult containing only deps that match the
+// given rules, along with the total hit count.
+func checkVulns(result *model.ScanResult, rules []matcher.Rule) (*model.ScanResult, int) {
 	// Build a quick lookup by name.
 	byName := map[string][]matcher.Rule{}
 	for _, r := range rules {
@@ -187,13 +189,15 @@ func checkVulns(result *model.ScanResult, rules []matcher.Rule) int {
 		}
 	}
 
-	result.Projects = projects
-	result.TotalDeps = totalHits
-
 	if unresolved > 0 {
 		fmt.Fprintf(os.Stderr, "WARNING: %d dependencies matched by name but version could not be resolved — marked UNRESOLVED.\n", unresolved)
 	}
-	return totalHits
+	return &model.ScanResult{
+		RootDir:      result.RootDir,
+		Projects:     projects,
+		TotalDeps:    totalHits,
+		ScanDuration: result.ScanDuration,
+	}, totalHits
 }
 
 // extractConcreteVersion returns a version string only if it looks like a pinned
