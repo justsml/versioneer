@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -48,11 +49,14 @@ func cachedReadLock(path string, parse func([]byte) map[string]string) (map[stri
 // Resolve fills in the Resolved field for all dependencies in the scan result.
 // It processes projects in parallel, caching lock file reads across projects.
 func Resolve(ctx context.Context, result *model.ScanResult, logger *log.Logger) {
+	sem := make(chan struct{}, runtime.NumCPU())
 	var wg sync.WaitGroup
 	for i := range result.Projects {
 		wg.Add(1)
 		go func(p *model.Project) {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			if ctx.Err() != nil {
 				return
 			}
