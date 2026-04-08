@@ -35,91 +35,166 @@ type Options struct {
 	RespectGitignore bool
 }
 
+// Stream holds a streaming scan result whose projects arrive on a channel.
+type Stream struct {
+	Projects <-chan model.Project
+	Start    time.Time
+}
+
 // Scan walks root in parallel and returns all discovered projects.
 // The context can be used to cancel or timeout the scan.
 func Scan(ctx context.Context, root string, logger *log.Logger, opts ...Options) (*model.ScanResult, error) {
+	stream, err := ScanStream(ctx, root, logger, opts...)
+	if err != nil {
+		return nil, err
+	}
+	projects := make([]model.Project, 0, 256)
+	totalDeps := 0
+	for p := range stream.Projects {
+		totalDeps += len(p.Dependencies)
+		projects = append(projects, p)
+	}
+	return &model.ScanResult{
+		RootDir:      root,
+		Projects:     projects,
+		TotalDeps:    totalDeps,
+		ScanDuration: time.Since(stream.Start),
+	}, nil
+}
+
+// ScanStream walks root and emits projects on a channel as they're discovered
+// and parsed. Use this to pipeline scanning with downstream processing such as
+// version resolution — resolution can begin while scanning is still in progress.
+func ScanStream(ctx context.Context, root string, logger *log.Logger, opts ...Options) (*Stream, error) {
 	var opt Options
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
-
 	start := time.Now()
 	manifests := parser.ManifestFiles()
 
-	// Build hierarchical gitignore checker when requested.
-	var ign *ignoreChecker
+	var pathsCh <-chan string
 	if opt.RespectGitignore {
-		ign = newIgnoreChecker(root, logger)
+		// Gitignore rules must be loaded parent-first, requiring sequential traversal.
+		pathsCh = walkSequential(ctx, root, manifests, logger)
+	} else {
+		// Parallel walker: goroutine-per-directory bounded by NumCPU semaphore.
+		pathsCh = walkParallel(ctx, root, manifests)
 	}
 
-	// Phase 1: walk the tree and collect manifest paths.
-	var paths []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	projectsCh := parseWorkers(ctx, root, pathsCh, logger)
+	return &Stream{Projects: projectsCh, Start: start}, nil
+}
+
+// walkParallel discovers manifest files concurrently using goroutine-per-directory,
+// bounded by a NumCPU semaphore. Faster than filepath.WalkDir on SSDs with high IOPS.
+func walkParallel(ctx context.Context, root string, manifests map[string]struct{}) <-chan string {
+	ch := make(chan string, 256)
+	sem := make(chan struct{}, runtime.NumCPU())
+	var wg sync.WaitGroup
+
+	var walk func(string)
+	walk = func(dir string) {
+		defer wg.Done()
+		sem <- struct{}{}
+		defer func() { <-sem }()
+
 		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if err != nil {
-			return nil // skip unreadable entries
+			return
 		}
 
-		if d.IsDir() {
-			name := d.Name()
-			if strings.HasPrefix(name, ".") && name != "." {
-				if _, allow := allowDotDirs[name]; !allow {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+
+		for _, e := range entries {
+			name := e.Name()
+
+			if e.IsDir() {
+				if strings.HasPrefix(name, ".") && name != "." {
+					if _, allow := allowDotDirs[name]; !allow {
+						continue
+					}
+				}
+				if _, skip := skipDirs[name]; skip {
+					continue
+				}
+				wg.Add(1)
+				go walk(filepath.Join(dir, name))
+			} else if _, ok := manifests[name]; ok {
+				ch <- filepath.Join(dir, name)
+			}
+		}
+	}
+
+	wg.Add(1)
+	go walk(root)
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	return ch
+}
+
+// walkSequential uses filepath.WalkDir for gitignore-aware scanning.
+// Gitignore rules must be loaded parent-first, requiring sequential traversal.
+func walkSequential(ctx context.Context, root string, manifests map[string]struct{}, logger *log.Logger) <-chan string {
+	ch := make(chan string, 256)
+	go func() {
+		defer close(ch)
+		ign := newIgnoreChecker(root, logger)
+		filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err != nil {
+				return nil // skip unreadable entries
+			}
+
+			if d.IsDir() {
+				name := d.Name()
+				if strings.HasPrefix(name, ".") && name != "." {
+					if _, allow := allowDotDirs[name]; !allow {
+						return filepath.SkipDir
+					}
+				}
+				if _, skip := skipDirs[name]; skip {
 					return filepath.SkipDir
 				}
-			}
-			if _, skip := skipDirs[name]; skip {
-				return filepath.SkipDir
-			}
-			// Load ignore files from this directory before descending.
-			if ign != nil {
 				ign.loadDir(path)
 				if ign.isIgnored(path, true) {
 					return filepath.SkipDir
 				}
+				return nil
+			}
+
+			if ign.isIgnored(path, false) {
+				return nil
+			}
+			if _, ok := manifests[d.Name()]; ok {
+				ch <- path
 			}
 			return nil
-		}
+		})
+	}()
+	return ch
+}
 
-		if ign != nil && ign.isIgnored(path, false) {
-			return nil
-		}
-		if _, ok := manifests[d.Name()]; ok {
-			paths = append(paths, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Phase 2: parse manifests in parallel.
+// parseWorkers starts NumCPU goroutines that read manifest paths, parse them,
+// and emit projects to the returned channel.
+func parseWorkers(ctx context.Context, root string, pathsCh <-chan string, logger *log.Logger) <-chan model.Project {
 	workers := runtime.NumCPU()
-	if workers > len(paths) {
-		workers = len(paths)
-	}
-	if workers == 0 {
-		return &model.ScanResult{
-			RootDir:      root,
-			ScanDuration: time.Since(start),
-		}, nil
-	}
-
-	type result struct {
-		project model.Project
-		err     error
-	}
-
-	ch := make(chan string, len(paths))
-	results := make(chan result, len(paths))
-
+	ch := make(chan model.Project, workers*2)
 	var wg sync.WaitGroup
+
 	for range workers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for path := range ch {
+			for path := range pathsCh {
 				if ctx.Err() != nil {
 					return
 				}
@@ -130,13 +205,11 @@ func Scan(ctx context.Context, root string, logger *log.Logger, opts ...Options)
 				data, err := os.ReadFile(path)
 				if err != nil {
 					logger.Printf("skip %s: %v", path, err)
-					results <- result{err: err}
 					continue
 				}
 				deps, err := p.Parse(path, data)
 				if err != nil {
 					logger.Printf("parse %s: %v", path, err)
-					results <- result{err: err}
 					continue
 				}
 				rel, _ := filepath.Rel(root, path)
@@ -144,47 +217,29 @@ func Scan(ctx context.Context, root string, logger *log.Logger, opts ...Options)
 				if len(deps) > 0 {
 					eco = deps[0].Ecosystem
 				}
-				results <- result{project: model.Project{
+				ch <- model.Project{
 					Path:         filepath.Dir(rel),
 					Ecosystem:    eco,
 					ManifestFile: rel,
 					Dependencies: deps,
 					ScannedAt:    time.Now(),
-				}}
+				}
 			}
 		}()
 	}
 
-	for _, p := range paths {
-		ch <- p
-	}
-	close(ch)
-
 	go func() {
 		wg.Wait()
-		close(results)
+		close(ch)
 	}()
 
-	var projects []model.Project
-	totalDeps := 0
-	for r := range results {
-		if r.err != nil {
-			continue // log in verbose mode later
-		}
-		totalDeps += len(r.project.Dependencies)
-		projects = append(projects, r.project)
-	}
-
-	return &model.ScanResult{
-		RootDir:      root,
-		Projects:     projects,
-		TotalDeps:    totalDeps,
-		ScanDuration: time.Since(start),
-	}, nil
+	return ch
 }
 
+// --- gitignore support ---
+
 type ignoreRule struct {
-	dir, pattern string
+	dir, pattern    string
 	negate, dirOnly bool
 }
 
@@ -209,8 +264,14 @@ func (ic *ignoreChecker) loadDir(dir string) {
 				continue
 			}
 			r := ignoreRule{dir: dir}
-			if line[0] == '!' { r.negate = true; line = line[1:] }
-			if strings.HasSuffix(line, "/") { r.dirOnly = true; line = strings.TrimSuffix(line, "/") }
+			if line[0] == '!' {
+				r.negate = true
+				line = line[1:]
+			}
+			if strings.HasSuffix(line, "/") {
+				r.dirOnly = true
+				line = strings.TrimSuffix(line, "/")
+			}
 			r.pattern = line
 			ic.rules = append(ic.rules, r)
 		}
@@ -221,10 +282,16 @@ func (ic *ignoreChecker) loadDir(dir string) {
 func (ic *ignoreChecker) isIgnored(path string, isDir bool) bool {
 	matched := false
 	for _, r := range ic.rules {
-		if r.dirOnly && !isDir { continue }
+		if r.dirOnly && !isDir {
+			continue
+		}
 		rel, err := filepath.Rel(r.dir, path)
-		if err != nil || strings.HasPrefix(rel, "..") { continue }
-		if matchIgnore(r.pattern, rel) { matched = !r.negate }
+		if err != nil || strings.HasPrefix(rel, "..") {
+			continue
+		}
+		if matchIgnore(r.pattern, rel) {
+			matched = !r.negate
+		}
 	}
 	return matched
 }
@@ -234,9 +301,13 @@ func matchIgnore(pattern, rel string) bool {
 	pat := strings.TrimPrefix(pattern, "/")
 	// Flatten **/ to match at any depth via basename fallback.
 	flat := strings.ReplaceAll(pat, "**/", "")
-	if ok, _ := filepath.Match(flat, filepath.Base(rel)); ok { return true }
+	if ok, _ := filepath.Match(flat, filepath.Base(rel)); ok {
+		return true
+	}
 	if strings.Contains(pat, "/") {
-		if ok, _ := filepath.Match(flat, rel); ok { return true }
+		if ok, _ := filepath.Match(flat, rel); ok {
+			return true
+		}
 	}
 	return false
 }

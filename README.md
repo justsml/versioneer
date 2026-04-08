@@ -75,20 +75,20 @@ When `-resolve` is active, all formats automatically include the resolved versio
 versioneer .
 
 # Scan with actual installed versions + timestamps
-versioneer -resolve ~/code
+versioneer -resolve ~/app
 
 # Full JSON report
-versioneer -resolve -format=json ~/code > report.json
+versioneer -resolve -format=json ~/app > report.json
 ```
 
 ### Filtering
 
 ```sh
 # Find every project that uses react
-versioneer -dep=react ~/code
+versioneer -dep=react ~/
 
 # Only Python dependencies
-versioneer -eco=python ~/code
+versioneer -eco=python ~/
 
 # Only dev dependencies
 versioneer -type=dev ~/code

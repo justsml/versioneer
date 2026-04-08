@@ -8,7 +8,10 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/justsml/versioneer/internal/matcher"
 	"github.com/justsml/versioneer/internal/model"
@@ -68,18 +71,29 @@ func main() {
 		root = flag.Arg(0)
 	}
 
-	result, err := scanner.Scan(ctx, root, logger, scanner.Options{
-		RespectGitignore: *gitignore,
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
-	}
+	var result *model.ScanResult
+	needResolve := *resolve || *check != "" || *checkFile != ""
 
-	// Resolve actual versions from lock files / disk.
-	// Auto-enable when doing security checks — we need real versions.
-	if *resolve || *check != "" || *checkFile != "" {
-		resolver.Resolve(ctx, result, logger)
+	if needResolve {
+		// Pipeline: scan and resolve concurrently — resolution begins while
+		// scanning is still discovering projects.
+		stream, err := scanner.ScanStream(ctx, root, logger, scanner.Options{
+			RespectGitignore: *gitignore,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(2)
+		}
+		result = pipelineResolve(ctx, stream, root, logger)
+	} else {
+		var err error
+		result, err = scanner.Scan(ctx, root, logger, scanner.Options{
+			RespectGitignore: *gitignore,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(2)
+		}
 	}
 
 	// Apply filters.
@@ -219,6 +233,47 @@ func extractConcreteVersion(spec string) string {
 		return spec
 	}
 	return ""
+}
+
+// pipelineResolve consumes projects from the scan stream and resolves each one
+// concurrently using a fixed worker pool — resolution overlaps with scanning.
+func pipelineResolve(ctx context.Context, stream *scanner.Stream, root string, logger *log.Logger) *model.ScanResult {
+	workers := runtime.NumCPU()
+	results := make(chan model.Project, workers*2)
+	var wg sync.WaitGroup
+
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for p := range stream.Projects {
+				if ctx.Err() != nil {
+					return
+				}
+				resolver.ResolveProject(root, &p, logger)
+				results <- p
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	projects := make([]model.Project, 0, 256)
+	totalDeps := 0
+	for p := range results {
+		totalDeps += len(p.Dependencies)
+		projects = append(projects, p)
+	}
+
+	return &model.ScanResult{
+		RootDir:      root,
+		Projects:     projects,
+		TotalDeps:    totalDeps,
+		ScanDuration: time.Since(stream.Start),
+	}
 }
 
 func filter(r *model.ScanResult, dep, eco, depType string) *model.ScanResult {
