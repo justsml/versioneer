@@ -5,6 +5,7 @@ package resolver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -15,6 +16,14 @@ import (
 
 	"github.com/justsml/versioneer/internal/model"
 )
+
+var supportedResolvers = map[string]bool{
+	"npm": true, "go": true, "rust": true, "python": true,
+}
+
+func hasResolver(ecosystem string) bool {
+	return supportedResolvers[ecosystem]
+}
 
 // lockCache caches parsed lock file data by absolute path.
 // Each entry is a *lockResult computed exactly once via sync.OnceFunc.
@@ -51,6 +60,8 @@ func cachedReadLock(path string, parse func([]byte) map[string]string) (map[stri
 func Resolve(ctx context.Context, result *model.ScanResult, logger *log.Logger) {
 	sem := make(chan struct{}, runtime.NumCPU())
 	var wg sync.WaitGroup
+	var unsupportedMu sync.Mutex
+	unsupported := map[string]int{}
 	for i := range result.Projects {
 		wg.Add(1)
 		go func(p *model.Project) {
@@ -60,10 +71,24 @@ func Resolve(ctx context.Context, result *model.ScanResult, logger *log.Logger) 
 			if ctx.Err() != nil {
 				return
 			}
+			if !hasResolver(p.Ecosystem) {
+				unsupportedMu.Lock()
+				unsupported[p.Ecosystem]++
+				unsupportedMu.Unlock()
+			}
 			resolveProject(result.RootDir, p, logger)
 		}(&result.Projects[i])
 	}
 	wg.Wait()
+
+	// Surface unsupported ecosystems so users know resolution was skipped.
+	if len(unsupported) > 0 {
+		var ecos []string
+		for eco, n := range unsupported {
+			ecos = append(ecos, fmt.Sprintf("%s (%d projects)", eco, n))
+		}
+		logger.Printf("resolve: version resolution not supported for: %s", strings.Join(ecos, ", "))
+	}
 }
 
 func resolveProject(rootDir string, p *model.Project, logger *log.Logger) {
