@@ -17,7 +17,11 @@ import (
 	"github.com/justsml/versioneer/internal/scanner"
 )
 
+var version = "dev"
+
 func main() {
+	var showVersion bool
+	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	format := flag.String("format", "table", "output format: json, jsonl, csv, markdown, table, summary")
 	depFilter := flag.String("dep", "", "filter to projects containing this dependency (substring match)")
 	ecoFilter := flag.String("eco", "", "filter to a specific ecosystem (go, npm, python, rust, ruby, java, php, dart)")
@@ -44,6 +48,11 @@ func main() {
 	}
 	flag.Parse()
 
+	if showVersion {
+		fmt.Println("versioneer", version)
+		os.Exit(0)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
@@ -64,7 +73,7 @@ func main() {
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 
 	// Resolve actual versions from lock files / disk.
@@ -83,7 +92,7 @@ func main() {
 		rules, err := loadRules(*check, *checkFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error loading rules: %v\n", err)
-			os.Exit(1)
+			os.Exit(2)
 		}
 		hits := checkVulns(result, rules)
 		if hits == 0 {
@@ -99,12 +108,12 @@ func main() {
 	formatter, err := output.Get(*format)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 
 	if err := formatter.Format(os.Stdout, result); err != nil {
 		fmt.Fprintf(os.Stderr, "error writing output: %v\n", err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 }
 
