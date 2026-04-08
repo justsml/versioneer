@@ -17,6 +17,11 @@ import (
 	"github.com/justsml/versioneer/internal/parser"
 )
 
+// allowDotDirs are dot-prefixed directories that should still be scanned.
+var allowDotDirs = map[string]struct{}{
+	".github": {},
+}
+
 // skipDirs are directory names that should never be descended into.
 var skipDirs = map[string]struct{}{
 	"node_modules": {}, ".git": {}, "vendor": {}, ".venv": {},
@@ -62,7 +67,9 @@ func Scan(ctx context.Context, root string, logger *log.Logger, opts ...Options)
 		if d.IsDir() {
 			name := d.Name()
 			if strings.HasPrefix(name, ".") && name != "." {
-				return filepath.SkipDir
+				if _, allow := allowDotDirs[name]; !allow {
+					return filepath.SkipDir
+				}
 			}
 			if _, skip := skipDirs[name]; skip {
 				return filepath.SkipDir
