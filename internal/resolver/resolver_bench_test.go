@@ -52,17 +52,6 @@ func buildCargoLock(n int) []byte {
 	return []byte(b.String())
 }
 
-func buildGoSum(n int) []byte {
-	var b strings.Builder
-	for i := range n {
-		mod := fmt.Sprintf("github.com/example/mod-%d", i)
-		ver := fmt.Sprintf("v%d.%d.%d", i%10, i%100, i)
-		fmt.Fprintf(&b, "%s %s h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n", mod, ver)
-		fmt.Fprintf(&b, "%s %s/go.mod h1:BBBBBBBBBBBBBBBBBBBBBBBBBBB=\n", mod, ver)
-	}
-	return []byte(b.String())
-}
-
 // ---------- benchmarks ----------
 
 func BenchmarkParsePackageLock(b *testing.B) {

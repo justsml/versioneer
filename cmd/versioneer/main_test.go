@@ -182,7 +182,7 @@ func TestCheckVulns(t *testing.T) {
 		}
 		rules := []matcher.Rule{mustRule(t, "axios@>=1.3.0,<1.6.0")}
 
-		result, hits := checkVulns(result, rules)
+		_, hits := checkVulns(result, rules)
 		if hits != 1 {
 			t.Errorf("expected 1 hit, got %d", hits)
 		}
@@ -207,7 +207,7 @@ func TestCheckVulns(t *testing.T) {
 		}
 		rules := []matcher.Rule{mustRule(t, "axios@>=1.3.0,<1.6.0")}
 
-		result, hits := checkVulns(result, rules)
+		_, hits := checkVulns(result, rules)
 		if hits != 1 {
 			t.Errorf("expected 1 hit, got %d", hits)
 		}
@@ -226,12 +226,12 @@ func TestCheckVulns(t *testing.T) {
 		}
 		rules := []matcher.Rule{mustRule(t, "axios@>=1.3.0,<1.6.0")}
 
-		result, hits := checkVulns(result, rules)
+		got, hits := checkVulns(result, rules)
 		if hits != 1 {
 			t.Errorf("expected 1 hit (unresolved), got %d", hits)
 		}
-		if result.Projects[0].Dependencies[0].Resolved != "UNRESOLVED" {
-			t.Errorf("expected Resolved=UNRESOLVED, got %q", result.Projects[0].Dependencies[0].Resolved)
+		if got.Projects[0].Dependencies[0].Resolved != "UNRESOLVED" {
+			t.Errorf("expected Resolved=UNRESOLVED, got %q", got.Projects[0].Dependencies[0].Resolved)
 		}
 	})
 
@@ -248,7 +248,7 @@ func TestCheckVulns(t *testing.T) {
 		}
 		rules := []matcher.Rule{mustRule(t, "axios@>=1.3.0,<1.6.0")}
 
-		result, hits := checkVulns(result, rules)
+		_, hits := checkVulns(result, rules)
 		if hits != 0 {
 			t.Errorf("expected 0 hits, got %d", hits)
 		}
@@ -267,7 +267,7 @@ func TestCheckVulns(t *testing.T) {
 		}
 		rules := []matcher.Rule{mustRule(t, "colors")}
 
-		result, hits := checkVulns(result, rules)
+		_, hits := checkVulns(result, rules)
 		if hits != 1 {
 			t.Errorf("expected 1 hit, got %d", hits)
 		}

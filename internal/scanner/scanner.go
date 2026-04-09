@@ -146,7 +146,7 @@ func walkSequential(ctx context.Context, root string, manifests map[string]struc
 	go func() {
 		defer close(ch)
 		ign := newIgnoreChecker(root, logger)
-		filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}

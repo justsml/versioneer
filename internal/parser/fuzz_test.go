@@ -8,7 +8,7 @@ func FuzzPackageJSON(f *testing.F) {
 	f.Add([]byte(`{"dependencies":{}}`))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		p := ForFile("package.json")
-		p.Parse("package.json", data) // must not panic
+		p.Parse("package.json", data) //nolint:errcheck // must not panic
 	})
 }
 
@@ -17,7 +17,7 @@ func FuzzGoMod(f *testing.F) {
 	f.Add([]byte("module example.com/foo\n\ngo 1.22\n"))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		p := ForFile("go.mod")
-		p.Parse("go.mod", data) // must not panic
+		p.Parse("go.mod", data) //nolint:errcheck // must not panic
 	})
 }
 
@@ -27,7 +27,7 @@ func FuzzRequirementsTxt(f *testing.F) {
 	f.Add([]byte("# only comments\n"))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		p := ForFile("requirements.txt")
-		p.Parse("requirements.txt", data) // must not panic
+		p.Parse("requirements.txt", data) //nolint:errcheck // must not panic
 	})
 }
 
@@ -36,7 +36,7 @@ func FuzzCargoToml(f *testing.F) {
 	f.Add([]byte("[package]\nname = \"empty\"\n"))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		p := ForFile("Cargo.toml")
-		p.Parse("Cargo.toml", data) // must not panic
+		p.Parse("Cargo.toml", data) //nolint:errcheck // must not panic
 	})
 }
 
@@ -46,7 +46,7 @@ func FuzzPomXML(f *testing.F) {
 	f.Add([]byte(`<project><dependencies></dependencies></project>`))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		p := ForFile("pom.xml")
-		p.Parse("pom.xml", data) // must not panic
+		p.Parse("pom.xml", data) //nolint:errcheck // must not panic
 	})
 }
 
@@ -56,6 +56,6 @@ func FuzzComposerJSON(f *testing.F) {
 	f.Add([]byte(`{"require":{}}`))
 	f.Fuzz(func(t *testing.T, data []byte) {
 		p := ForFile("composer.json")
-		p.Parse("composer.json", data) // must not panic
+		p.Parse("composer.json", data) //nolint:errcheck // must not panic
 	})
 }

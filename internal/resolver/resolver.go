@@ -245,7 +245,7 @@ func parseLockVersionMap(dec *json.Decoder, resolved map[string]string, stripNod
 			resolved[name] = ver
 		}
 	}
-	dec.Token() // closing }
+	dec.Token() //nolint:errcheck // closing }
 }
 
 // extractLockVersion reads a JSON object and returns only its "version" value,
@@ -274,7 +274,7 @@ func extractLockVersion(dec *json.Decoder) string {
 			skipJSONValue(dec)
 		}
 	}
-	dec.Token() // closing }
+	dec.Token() //nolint:errcheck // closing }
 	return version
 }
 
@@ -288,15 +288,15 @@ func skipJSONValue(dec *json.Decoder) {
 		switch delim {
 		case '{':
 			for dec.More() {
-				dec.Token() // key
+				dec.Token() //nolint:errcheck // key
 				skipJSONValue(dec)
 			}
-			dec.Token() // }
+			dec.Token() //nolint:errcheck // }
 		case '[':
 			for dec.More() {
 				skipJSONValue(dec)
 			}
-			dec.Token() // ]
+			dec.Token() //nolint:errcheck // ]
 		}
 	}
 }
