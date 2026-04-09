@@ -40,6 +40,13 @@ jobs:
             CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
               go build -trimpath -ldflags="$LDFLAGS" -o "$output" ./cmd/versioneer
           done
+      - name: Create version-less aliases for latest
+        run: |
+          cd dist
+          for f in versioneer-*; do
+            alias=$(echo "$f" | sed "s/versioneer-${GITHUB_REF_NAME}-/versioneer-/")
+            cp "$f" "$alias"
+          done
       - name: Generate checksums
         run: cd dist && sha256sum * > checksums.txt
       - name: Create release

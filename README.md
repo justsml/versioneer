@@ -72,6 +72,13 @@ lodash  4.17.15  4.17.15    disk  npm  direct  6mo ago   3mo ago
 go install github.com/justsml/versioneer/cmd/versioneer@latest
 ```
 
+### Curl (Linux / macOS)
+
+```sh
+curl -fsSL "https://github.com/justsml/versioneer/releases/latest/download/versioneer-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" \
+  -o /usr/local/bin/versioneer && chmod +x /usr/local/bin/versioneer
+```
+
 ### From source
 
 ```sh
