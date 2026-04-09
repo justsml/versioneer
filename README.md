@@ -1,8 +1,28 @@
-# Versioneer
+<p align="center">
+  <h1 align="center">Versioneer</h1>
+  <p align="center">
+    <strong>Blazing-fast dependency scanner & security audit tool for polyglot codebases</strong>
+  </p>
+  <p align="center">
+    <a href="https://github.com/justsml/versioneer/actions"><img src="https://img.shields.io/github/actions/workflow/status/justsml/versioneer/ci.yml?branch=main&style=flat-square&logo=github&label=CI" alt="CI"></a>
+    <a href="https://goreportcard.com/report/github.com/justsml/versioneer"><img src="https://goreportcard.com/badge/github.com/justsml/versioneer?style=flat-square" alt="Go Report Card"></a>
+    <a href="https://pkg.go.dev/github.com/justsml/versioneer"><img src="https://img.shields.io/badge/go.dev-reference-007d9c?style=flat-square&logo=go&logoColor=white" alt="Go Reference"></a>
+    <a href="https://github.com/justsml/versioneer/blob/main/LICENSE"><img src="https://img.shields.io/github/license/justsml/versioneer?style=flat-square" alt="License"></a>
+    <a href="https://github.com/justsml/versioneer/releases"><img src="https://img.shields.io/github/v/release/justsml/versioneer?style=flat-square&logo=github" alt="Release"></a>
+    <a href="https://github.com/justsml/versioneer/stargazers"><img src="https://img.shields.io/github/stars/justsml/versioneer?style=flat-square" alt="Stars"></a>
+  </p>
+</p>
 
-A blazing-fast dependency scanner and security audit tool for polyglot codebases. Zero config, zero external dependencies, instant results.
+<br>
 
-Scan **55,000 dependencies across 4,000+ projects in ~10 seconds** — then sweep them for known vulnerabilities in one command.
+> Zero config. Zero external dependencies. Instant results.
+>
+> Scan **55,000 dependencies across 4,000+ projects in ~10 seconds** — then sweep them for known vulnerabilities in one command.
+
+<br>
+
+<details>
+<summary><strong>See it in action</strong></summary>
 
 ```
 $ versioneer -resolve -check='axios@<1.6.0,lodash@<4.17.21' ~/
@@ -29,58 +49,39 @@ lodash  4.17.15  4.17.15    disk  npm  direct  6mo ago   3mo ago
 8 dependencies across 4 projects (scanned in 1.23s)
 ```
 
+</details>
+
+---
+
+## Highlights
+
+- **8 ecosystems** — npm, Go, Python, Rust, Java, Ruby, PHP, Dart
+- **Lock file resolution** — `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`, `go.sum`, `Cargo.lock`, plus on-disk and exec fallbacks
+- **Security sweep** — match resolved versions against inline rules or a rules file; CI-friendly exit codes
+- **Pure Go, zero deps** — stdlib only, single static binary
+- **Concurrent pipeline** — parallel directory walking, streaming parsers, pipelined resolve
+- **6 output formats** — table, JSON, JSONL, CSV, Markdown, summary
+
+---
+
 ## Install
+
+### Go
 
 ```sh
 go install github.com/justsml/versioneer/cmd/versioneer@latest
 ```
 
-Or build from source:
+### From source
 
 ```sh
 git clone https://github.com/justsml/versioneer && cd versioneer
 go build -o versioneer ./cmd/versioneer
 ```
 
-## What it does
+---
 
-**Scan** — walks a directory tree using a concurrent parallel walker (goroutine-per-directory bounded by NumCPU), discovers every project manifest, and parses out all dependencies with their version specs.
-
-**Resolve** — looks up the *actual installed version* from lock files (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`, `go.sum`, `Cargo.lock`), on-disk package directories (`node_modules`, `.venv`, `vendor`), and package manager exec (`bun pm ls` for binary `bun.lockb`). Walks up to monorepo roots automatically. Each resolved version is tagged with its source (`lockfile`, `disk`, or `exec`) so you know exactly where the version came from.
-
-**Audit** — matches resolved versions against a set of rules (inline or from a file) to find vulnerable, malicious, or outdated packages. Flags unresolvable versions as `UNRESOLVED` so nothing slips through silently.
-
-## Supported ecosystems
-
-| Ecosystem | Manifests | Lock files / on-disk resolution |
-|-----------|-----------|-------------------------------|
-| **npm** | `package.json` | `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`, `bun pm ls` (binary lockb), `node_modules/` |
-| **Go** | `go.mod` | `go.sum` |
-| **Python** | `requirements.txt`, `Pipfile`, `pyproject.toml` | `.venv/`, `venv/` dist-info |
-| **Rust** | `Cargo.toml` | `Cargo.lock` |
-| **Java** | `pom.xml`, `build.gradle`, `build.gradle.kts` | — |
-| **Ruby** | `Gemfile` | — |
-| **PHP** | `composer.json` | — |
-| **Dart** | `pubspec.yaml` | — |
-
-## Output formats
-
-Six built-in formats, all streaming (no buffering):
-
-| Format | Flag | Use case |
-|--------|------|----------|
-| `table` | `-format=table` | Terminal (default) |
-| `json` | `-format=json` | Full structured report |
-| `jsonl` | `-format=jsonl` | Streaming / piping / log ingest |
-| `csv` | `-format=csv` | Spreadsheets, data pipelines |
-| `markdown` | `-format=markdown` | PRs, wikis, reports |
-| `summary` | `-format=summary` | Quick stats + staleness overview |
-
-When `-resolve` is active, all formats include the resolved version, resolution source (`lockfile`/`disk`/`exec`), and timestamp columns. All formats report project count, dependency count, and scan duration — table, markdown, and summary embed it in the output; csv and jsonl print it to stderr.
-
-## Usage
-
-### Basic scan
+## Quick start
 
 ```sh
 # Scan current directory
@@ -92,6 +93,10 @@ versioneer -resolve ~/app
 # Full JSON report
 versioneer -resolve -format=json ~/app > report.json
 ```
+
+---
+
+## Usage
 
 ### Filtering
 
@@ -123,7 +128,8 @@ versioneer -checkfile=vulns.txt ~/code
 
 Exits with code **1** when matches are found (CI-friendly). Auto-enables version resolution.
 
-### Rules file format
+<details>
+<summary><strong>Rules file format</strong></summary>
 
 One rule per line. `#` comments and blank lines are fine.
 
@@ -143,45 +149,91 @@ event-stream                      # name-only = any version
 - Pinned specs (e.g. `1.7.9`) are matched directly when no lock file is available
 - Range expressions (e.g. `^1.3.5`) without a resolved version are flagged as `UNRESOLVED` — never silently skipped or false-matched
 
+</details>
+
+---
+
+## Supported ecosystems
+
+| Ecosystem | Manifests | Lock files / on-disk resolution |
+|-----------|-----------|-------------------------------|
+| **npm** | `package.json` | `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`, `bun pm ls` (binary lockb), `node_modules/` |
+| **Go** | `go.mod` | `go.sum` |
+| **Python** | `requirements.txt`, `Pipfile`, `pyproject.toml` | `.venv/`, `venv/` dist-info |
+| **Rust** | `Cargo.toml` | `Cargo.lock` |
+| **Java** | `pom.xml`, `build.gradle`, `build.gradle.kts` | — |
+| **Ruby** | `Gemfile` | — |
+| **PHP** | `composer.json` | — |
+| **Dart** | `pubspec.yaml` | — |
+
+## Output formats
+
+| Format | Flag | Use case |
+|--------|------|----------|
+| `table` | `-format=table` | Terminal (default) |
+| `json` | `-format=json` | Full structured report |
+| `jsonl` | `-format=jsonl` | Streaming / piping / log ingest |
+| `csv` | `-format=csv` | Spreadsheets, data pipelines |
+| `markdown` | `-format=markdown` | PRs, wikis, reports |
+| `summary` | `-format=summary` | Quick stats + staleness overview |
+
+When `-resolve` is active, all formats include the resolved version, resolution source (`lockfile`/`disk`/`exec`), and timestamp columns.
+
+---
+
 ## Architecture
 
 ```
-cmd/versioneer/main.go        CLI: flags, filtering, security checks, scan↔resolve pipeline
+cmd/versioneer/main.go        CLI entry point — flags, filtering, security checks
 internal/
   scanner/scanner.go           Parallel directory walker + streaming project emitter
   parser/                      Per-ecosystem manifest parsers (8 ecosystems)
   resolver/                    Lock file + on-disk + exec version resolution
-    resolver.go                npm, Go, Rust, Python, Bun resolvers with lock cache
+    resolver.go                npm, Go, Rust, Python, Bun resolvers + lock cache
     timestamps.go              Manifest, project dir, deps dir modified times
   matcher/                     Semver parsing + constraint matching
   output/                      Streaming formatters (table, json, jsonl, csv, md, summary)
   model/dependency.go          Core types: Dependency, Project, ScanResult
 ```
 
-**Design decisions:**
+<details>
+<summary><strong>Design decisions</strong></summary>
+
 - **Zero external dependencies** — stdlib only, no cobra/viper/lipgloss
 - **3-stage pipeline** — directory walking, manifest parsing, and version resolution run as concurrent pipeline stages. When `-resolve` is active, resolution begins while scanning is still discovering projects
-- **Parallel directory walker** — goroutine-per-directory bounded by NumCPU semaphore, faster than `filepath.WalkDir` on SSDs. Falls back to sequential walk when `--gitignore` is enabled (gitignore rules require parent-first ordering)
+- **Parallel directory walker** — goroutine-per-directory bounded by NumCPU semaphore, faster than `filepath.WalkDir` on SSDs. Falls back to sequential walk when `--gitignore` is enabled
 - **Streaming lock file parsers** — package-lock.json uses a streaming JSON token decoder (skips integrity hashes without allocating), yarn.lock uses a line-based state machine (13x faster than regex), Cargo.lock and go.sum use `bufio.Scanner`
 - **Lock file caching** — `sync.Map` + `sync.Once` ensures monorepo lock files are parsed exactly once even across hundreds of sub-packages
-- **Resolution source tracking** — every resolved version is tagged `lockfile`, `disk`, or `exec` so you can tell at a glance whether a version came from a lock file, was found on disk, or was obtained by running a package manager
-- **Bun support** — parses `bun.lock` text format (JSONC with zero-dependency stripping), falls back to `bun pm ls` for binary `bun.lockb`, then to `node_modules/` traversal
+- **Resolution source tracking** — every resolved version is tagged `lockfile`, `disk`, or `exec`
+- **Bun support** — parses `bun.lock` JSONC, falls back to `bun pm ls` for binary `bun.lockb`, then to `node_modules/`
 - **Streaming output** — formatters write directly to `io.Writer`, no intermediate buffering
-- **Monorepo-aware** — lock files and dependency directory lookups walk up to the repo root, stopping at `.git` boundaries
+- **Monorepo-aware** — lock file lookups walk up to the repo root, stopping at `.git` boundaries
 
-## Similar tools
+</details>
 
-| Tool | Description | License | Commercial | Ecosystems | Built With | Stars | Downloads | Last Updated |
-| ---- | ----------- | ------- | ---------- | ---------- | ---------- | ----- | --------- | ------------ |
-| [Snyk CLI](https://github.com/snyk/cli) | Developer-first security tool for finding and fixing vulnerabilities in dependencies, containers, and IaC | Apache-2.0 | Yes (freemium, login required) | npm, Java, Python, Go, .NET, PHP, Ruby, Rust, Swift, containers, IaC | TypeScript | [![GitHub Stars](https://img.shields.io/github/stars/snyk/cli?style=flat-square)](https://github.com/snyk/cli) | [![npm](https://img.shields.io/npm/dw/snyk?style=flat-square)](https://www.npmjs.com/package/snyk) | [![GitHub last commit](https://img.shields.io/github/last-commit/snyk/cli?style=flat-square)](https://github.com/snyk/cli/commits) |
-| [Socket CLI](https://github.com/SocketDev/socket-cli) | Detects supply chain attacks, malware, and risky dependencies proactively | MIT | Yes (freemium, API key required) | npm, Python, Go | TypeScript | [![GitHub Stars](https://img.shields.io/github/stars/SocketDev/socket-cli?style=flat-square)](https://github.com/SocketDev/socket-cli) | [![npm](https://img.shields.io/npm/dw/socket?style=flat-square)](https://www.npmjs.com/package/socket) | [![GitHub last commit](https://img.shields.io/github/last-commit/SocketDev/socket-cli?style=flat-square)](https://github.com/SocketDev/socket-cli/commits) |
-| [Trivy](https://github.com/aquasecurity/trivy) | All-in-one security scanner for vulnerabilities, misconfigurations, secrets, and SBOM | Apache-2.0 | Yes (Aqua platform), no login | npm, Python, Go, Java, .NET, PHP, Ruby, Rust, Dart, containers, IaC | Go | [![GitHub Stars](https://img.shields.io/github/stars/aquasecurity/trivy?style=flat-square)](https://github.com/aquasecurity/trivy) | — | [![GitHub last commit](https://img.shields.io/github/last-commit/aquasecurity/trivy?style=flat-square)](https://github.com/aquasecurity/trivy/commits) |
-| [Grype](https://github.com/anchore/grype) | Vulnerability scanner for container images and filesystems | Apache-2.0 | Yes (Anchore Enterprise), no login | npm, Python, Go, Java, .NET, Ruby, Rust, PHP, containers, SBOM | Go | [![GitHub Stars](https://img.shields.io/github/stars/anchore/grype?style=flat-square)](https://github.com/anchore/grype) | — | [![GitHub last commit](https://img.shields.io/github/last-commit/anchore/grype?style=flat-square)](https://github.com/anchore/grype/commits) |
-| [OSV-Scanner](https://github.com/google/osv-scanner) | Google-backed scanner using the OSV database for known vulnerabilities | Apache-2.0 | No, no login | npm, Python, Go, Java, .NET, Rust, Dart, Ruby, PHP, Elixir, R | Go | [![GitHub Stars](https://img.shields.io/github/stars/google/osv-scanner?style=flat-square)](https://github.com/google/osv-scanner) | — | [![GitHub last commit](https://img.shields.io/github/last-commit/google/osv-scanner?style=flat-square)](https://github.com/google/osv-scanner/commits) |
-| [OWASP Dependency-Check](https://github.com/jeremylong/DependencyCheck) | SCA tool that detects publicly disclosed vulnerabilities in project dependencies | Apache-2.0 | No, NVD API key recommended | Java (primary), npm, .NET, Python, Ruby, PHP, Go | Java | [![GitHub Stars](https://img.shields.io/github/stars/jeremylong/DependencyCheck?style=flat-square)](https://github.com/jeremylong/DependencyCheck) | — | [![GitHub last commit](https://img.shields.io/github/last-commit/jeremylong/DependencyCheck?style=flat-square)](https://github.com/jeremylong/DependencyCheck/commits) |
-| [Retire.js](https://github.com/RetireJS/retire.js) | Detects JavaScript libraries with known vulnerabilities | Apache-2.0 | No, no login | JavaScript/npm | JavaScript | [![GitHub Stars](https://img.shields.io/github/stars/RetireJS/retire.js?style=flat-square)](https://github.com/RetireJS/retire.js) | [![npm](https://img.shields.io/npm/dw/retire?style=flat-square)](https://www.npmjs.com/package/retire) | [![GitHub last commit](https://img.shields.io/github/last-commit/RetireJS/retire.js?style=flat-square)](https://github.com/RetireJS/retire.js/commits) |
-| [safety](https://github.com/pyupio/safety) | Python dependency checker scanning against the Safety DB | MIT | Yes (freemium, API key required) | Python | Python | [![GitHub Stars](https://img.shields.io/github/stars/pyupio/safety?style=flat-square)](https://github.com/pyupio/safety) | — | [![GitHub last commit](https://img.shields.io/github/last-commit/pyupio/safety?style=flat-square)](https://github.com/pyupio/safety/commits) |
-| [audit.js](https://github.com/sonatype-nexus-community/auditjs) | Sonatype-powered auditor for npm packages using the OSS Index | Apache-2.0 | Partial (free + Nexus IQ), no login | JavaScript/npm | TypeScript | [![GitHub Stars](https://img.shields.io/github/stars/sonatype-nexus-community/auditjs?style=flat-square)](https://github.com/sonatype-nexus-community/auditjs) | [![npm](https://img.shields.io/npm/dw/auditjs?style=flat-square)](https://www.npmjs.com/package/auditjs) | [![GitHub last commit](https://img.shields.io/github/last-commit/sonatype-nexus-community/auditjs?style=flat-square)](https://github.com/sonatype-nexus-community/auditjs/commits) |
+---
+
+## Comparison
+
+<details>
+<summary><strong>How does Versioneer compare to other tools?</strong></summary>
+
+| Tool | License | Commercial | Ecosystems | Built With |
+| ---- | ------- | ---------- | ---------- | ---------- |
+| **Versioneer** | MIT | No | 8 | Go (zero deps) |
+| [Snyk CLI](https://github.com/snyk/cli) | Apache-2.0 | Yes (freemium) | 10+ | TypeScript |
+| [Socket CLI](https://github.com/SocketDev/socket-cli) | MIT | Yes (freemium) | 3 | TypeScript |
+| [Trivy](https://github.com/aquasecurity/trivy) | Apache-2.0 | Yes (Aqua) | 10+ | Go |
+| [Grype](https://github.com/anchore/grype) | Apache-2.0 | Yes (Anchore) | 10+ | Go |
+| [OSV-Scanner](https://github.com/google/osv-scanner) | Apache-2.0 | No | 12+ | Go |
+| [Dependency-Check](https://github.com/jeremylong/DependencyCheck) | Apache-2.0 | No | 7+ | Java |
+| [Retire.js](https://github.com/RetireJS/retire.js) | Apache-2.0 | No | 1 | JavaScript |
+| [safety](https://github.com/pyupio/safety) | MIT | Yes (freemium) | 1 | Python |
+| [audit.js](https://github.com/sonatype-nexus-community/auditjs) | Apache-2.0 | Partial | 1 | TypeScript |
+
+</details>
+
+---
 
 ## Contributing
 
@@ -198,6 +250,8 @@ go build ./cmd/versioneer
 # Test a scan
 go run ./cmd/versioneer -resolve -format=summary ~/your-code
 ```
+
+---
 
 ## License
 
