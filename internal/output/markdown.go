@@ -15,10 +15,17 @@ func (markdownFmt) Format(w io.Writer, result *model.ScanResult) error {
 	hasRes := anyResolved(result)
 	hasTimes := anyTimestamps(result)
 
-	projects := result.Projects
+	projects := make([]model.Project, len(result.Projects))
+	copy(projects, result.Projects)
 	sort.Slice(projects, func(i, j int) bool {
 		return projects[i].ManifestFile < projects[j].ManifestFile
 	})
+	// Sort dependencies alphabetically within each project.
+	for i := range projects {
+		sort.Slice(projects[i].Dependencies, func(a, b int) bool {
+			return projects[i].Dependencies[a].Name < projects[i].Dependencies[b].Name
+		})
+	}
 
 	fmt.Fprintf(w, "# Dependency Audit Report\n\n")
 	fmt.Fprintf(w, "**Root:** `%s`  \n", result.RootDir)

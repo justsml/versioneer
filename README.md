@@ -9,12 +9,24 @@ $ versioneer -resolve -check='axios@<1.6.0,lodash@<4.17.21' ~/
 
 WARNING: 3 dependencies matched by name but version could not be resolved — marked UNRESOLVED.
 FOUND 8 matching dependencies across rules.
-NAME    SPEC     INSTALLED   VIA       ECO  TYPE    MANIFEST  DEPS DIR   SOURCE
-──────  ───────  ──────────  ────────  ───  ──────  ────────  ─────────  ─────────────────────────────
-axios   ^0.26.0  0.26.1      lockfile  npm  direct  1mo ago   —          ~/code/AgentGPT/next/package.json
-axios   ^0.21.1  0.21.4      lockfile  npm  dev     9mo ago   —          ~/code/swc/package.json
-lodash  4.17.15  4.17.15     disk      npm  direct  6mo ago   3mo ago    ~/code/legacy-app/package.json
+
+── code/AgentGPT/next/package.json (1 deps) ──────────────────────────
+NAME   SPEC     INSTALLED  VIA       ECO  TYPE    MANIFEST  DEPS DIR
+─────  ───────  ─────────  ────────  ───  ──────  ────────  ────────
+axios  ^0.26.0  0.26.1     lockfile  npm  direct  1mo ago   —
+
+── code/swc/package.json (1 deps) ─────────────────────────────────────
+NAME   SPEC     INSTALLED  VIA       ECO  TYPE  MANIFEST  DEPS DIR
+─────  ───────  ─────────  ────────  ───  ────  ────────  ────────
+axios  ^0.21.1  0.21.4     lockfile  npm  dev   9mo ago   —
+
+── code/legacy-app/package.json (1 deps) ──────────────────────────────
+NAME    SPEC     INSTALLED  VIA   ECO  TYPE    MANIFEST  DEPS DIR
+──────  ───────  ─────────  ────  ───  ──────  ────────  ────────
+lodash  4.17.15  4.17.15    disk  npm  direct  6mo ago   3mo ago
 ...
+
+8 dependencies across 4 projects (scanned in 1.23s)
 ```
 
 ## Install

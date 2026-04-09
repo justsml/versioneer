@@ -3,6 +3,7 @@ package output
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/justsml/versioneer/internal/model"
@@ -15,12 +16,38 @@ func (tableFmt) Format(w io.Writer, result *model.ScanResult) error {
 	hasRes := anyResolved(result)
 	hasTimes := anyTimestamps(result)
 
-	var header []string
-	var rows [][]string
+	// Sort projects by manifest file for grouped output.
+	projects := make([]model.Project, len(result.Projects))
+	copy(projects, result.Projects)
+	sort.Slice(projects, func(i, j int) bool {
+		return projects[i].ManifestFile < projects[j].ManifestFile
+	})
 
-	for _, p := range result.Projects {
+	// Sort dependencies alphabetically within each project.
+	for i := range projects {
+		sort.Slice(projects[i].Dependencies, func(a, b int) bool {
+			return projects[i].Dependencies[a].Name < projects[i].Dependencies[b].Name
+		})
+	}
+
+	// Build header + grouped rows. A nil row marks a group boundary.
+	var header []string
+	type row struct {
+		cols  []string // nil = group separator
+		label string   // only set for separators
+	}
+	var rows []row
+
+	for _, p := range projects {
+		if len(p.Dependencies) == 0 {
+			continue
+		}
+
 		mAge := resolver.RelativeAge(p.ManifestModified)
 		dAge := resolver.RelativeAge(p.DepsDirModified)
+
+		// Group header.
+		rows = append(rows, row{label: fmt.Sprintf("%s (%d deps)", p.ManifestFile, len(p.Dependencies))})
 
 		for _, d := range p.Dependencies {
 			resolved := d.Resolved
@@ -32,49 +59,43 @@ func (tableFmt) Format(w io.Writer, result *model.ScanResult) error {
 			switch {
 			case hasRes && hasTimes:
 				if header == nil {
-					header = []string{"NAME", "SPEC", "INSTALLED", "VIA", "ECO", "TYPE", "MANIFEST", "DEPS DIR", "SOURCE"}
+					header = []string{"NAME", "SPEC", "INSTALLED", "VIA", "ECO", "TYPE", "MANIFEST", "DEPS DIR"}
 				}
-				rows = append(rows, []string{d.Name, d.Version, resolved, via, d.Ecosystem, d.DepType, mAge, dAge, d.SourceFile})
+				rows = append(rows, row{cols: []string{d.Name, d.Version, resolved, via, d.Ecosystem, d.DepType, mAge, dAge}})
 			case hasRes:
 				if header == nil {
-					header = []string{"NAME", "SPEC", "INSTALLED", "VIA", "ECOSYSTEM", "TYPE", "SOURCE"}
+					header = []string{"NAME", "SPEC", "INSTALLED", "VIA", "ECOSYSTEM", "TYPE"}
 				}
-				rows = append(rows, []string{d.Name, d.Version, resolved, via, d.Ecosystem, d.DepType, d.SourceFile})
+				rows = append(rows, row{cols: []string{d.Name, d.Version, resolved, via, d.Ecosystem, d.DepType}})
 			default:
 				if header == nil {
-					header = []string{"NAME", "VERSION", "ECOSYSTEM", "TYPE", "SOURCE"}
+					header = []string{"NAME", "VERSION", "ECOSYSTEM", "TYPE"}
 				}
-				rows = append(rows, []string{d.Name, d.Version, d.Ecosystem, d.DepType, d.SourceFile})
+				rows = append(rows, row{cols: []string{d.Name, d.Version, d.Ecosystem, d.DepType}})
 			}
 		}
 	}
 
 	if header == nil {
-		// No data — pick a default header so we still print the summary.
-		header = []string{"NAME", "VERSION", "ECOSYSTEM", "TYPE", "SOURCE"}
+		header = []string{"NAME", "VERSION", "ECOSYSTEM", "TYPE"}
 	}
 
-	writeTable(w, header, rows)
-	fmt.Fprintf(w, "\n%d dependencies across %d projects (scanned in %s)\n",
-		result.TotalDeps, len(result.Projects), result.ScanDuration)
-	return nil
-}
-
-// writeTable renders header + rows with auto-sized columns.
-func writeTable(w io.Writer, header []string, rows [][]string) {
+	// Compute column widths across all data rows.
 	ncols := len(header)
 	widths := make([]int, ncols)
 	for i, h := range header {
 		widths[i] = len(h)
 	}
-	for _, row := range rows {
-		for i := range min(len(row), ncols) {
-			widths[i] = max(widths[i], len(row[i]))
+	for _, r := range rows {
+		if r.cols == nil {
+			continue
+		}
+		for i := range min(len(r.cols), ncols) {
+			widths[i] = max(widths[i], len(r.cols[i]))
 		}
 	}
 
-	// Build format string: all columns left-aligned with 2-space gap,
-	// last column has no padding.
+	// Build format string.
 	var fmtParts []string
 	for i, w := range widths {
 		if i < ncols-1 {
@@ -85,29 +106,57 @@ func writeTable(w io.Writer, header []string, rows [][]string) {
 	}
 	fmtStr := strings.Join(fmtParts, "  ") + "\n"
 
-	// Print header.
-	vals := make([]any, ncols)
-	for i, h := range header {
-		vals[i] = h
-	}
-	fmt.Fprintf(w, fmtStr, vals...)
-
-	// Print separator.
-	sepParts := make([]string, ncols)
+	// Total table width for separator lines.
+	tableWidth := 0
 	for i, w := range widths {
-		sepParts[i] = strings.Repeat("─", w)
+		tableWidth += w
+		if i < ncols-1 {
+			tableWidth += 2
+		}
 	}
-	fmt.Fprint(w, strings.Join(sepParts, "  ")+"\n")
 
-	// Print rows.
-	for _, row := range rows {
+	// Render.
+	vals := make([]any, ncols)
+	headerPrinted := false
+
+	for _, r := range rows {
+		if r.cols == nil {
+			// Group separator.
+			if headerPrinted {
+				fmt.Fprintln(w) // blank line between groups
+			}
+			label := "── " + r.label + " "
+			pad := tableWidth - len(label)
+			if pad < 0 {
+				pad = 0
+			}
+			fmt.Fprint(w, label+strings.Repeat("─", pad)+"\n")
+
+			// Print header + separator under each group.
+			for i, h := range header {
+				vals[i] = h
+			}
+			fmt.Fprintf(w, fmtStr, vals...)
+			sepParts := make([]string, ncols)
+			for i, w := range widths {
+				sepParts[i] = strings.Repeat("─", w)
+			}
+			fmt.Fprint(w, strings.Join(sepParts, "  ")+"\n")
+			headerPrinted = true
+			continue
+		}
+
 		for i := range ncols {
-			if i < len(row) {
-				vals[i] = row[i]
+			if i < len(r.cols) {
+				vals[i] = r.cols[i]
 			} else {
 				vals[i] = ""
 			}
 		}
 		fmt.Fprintf(w, fmtStr, vals...)
 	}
+
+	fmt.Fprintf(w, "\n%d dependencies across %d projects (scanned in %s)\n",
+		result.TotalDeps, len(result.Projects), result.ScanDuration)
+	return nil
 }
