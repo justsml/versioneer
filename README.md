@@ -91,14 +91,14 @@ go build -o versioneer ./cmd/versioneer
 ## Quick start
 
 ```sh
-# Scan current directory
+# Scan current directory (resolves versions by default)
 versioneer .
 
-# Scan with actual installed versions + timestamps
-versioneer -resolve ~/app
+# Skip version resolution for a faster scan
+versioneer -no-resolve ~/app
 
 # Full JSON report
-versioneer -resolve -format=json ~/app > report.json
+versioneer -format=json ~/app > report.json
 ```
 
 ---
@@ -118,7 +118,7 @@ versioneer -eco=python ~/
 versioneer -type=dev ~/code
 
 # Combine filters
-versioneer -resolve -dep=axios -eco=npm -format=csv ~/code
+versioneer -dep=axios -eco=npm -format=csv ~/code
 ```
 
 ### Security sweeps
@@ -184,7 +184,7 @@ event-stream                      # name-only = any version
 | `markdown` | `-format=markdown` | PRs, wikis, reports |
 | `summary` | `-format=summary` | Quick stats + staleness overview |
 
-When `-resolve` is active, all formats include the resolved version, resolution source (`lockfile`/`disk`/`exec`), and timestamp columns.
+All formats include the resolved version, resolution source (`lockfile`/`disk`/`exec`), and timestamp columns by default. Use `-no-resolve` to omit them.
 
 ---
 
@@ -207,7 +207,7 @@ internal/
 <summary><strong>Design decisions</strong></summary>
 
 - **Zero external dependencies** — stdlib only, no cobra/viper/lipgloss
-- **3-stage pipeline** — directory walking, manifest parsing, and version resolution run as concurrent pipeline stages. When `-resolve` is active, resolution begins while scanning is still discovering projects
+- **3-stage pipeline** — directory walking, manifest parsing, and version resolution run as concurrent pipeline stages. Resolution runs by default and begins while scanning is still discovering projects
 - **Parallel directory walker** — goroutine-per-directory bounded by NumCPU semaphore, faster than `filepath.WalkDir` on SSDs. Falls back to sequential walk when `--gitignore` is enabled
 - **Streaming lock file parsers** — package-lock.json uses a streaming JSON token decoder (skips integrity hashes without allocating), yarn.lock uses a line-based state machine (13x faster than regex), Cargo.lock and go.sum use `bufio.Scanner`
 - **Lock file caching** — `sync.Map` + `sync.Once` ensures monorepo lock files are parsed exactly once even across hundreds of sub-packages
@@ -255,7 +255,7 @@ go test -bench=. -benchmem ./internal/resolver/
 go build ./cmd/versioneer
 
 # Test a scan
-go run ./cmd/versioneer -resolve -format=summary ~/your-code
+go run ./cmd/versioneer -format=summary ~/your-code
 ```
 
 ---

@@ -29,7 +29,7 @@ func main() {
 	depFilter := flag.String("dep", "", "filter to projects containing this dependency (substring match)")
 	ecoFilter := flag.String("eco", "", "filter to a specific ecosystem (go, npm, python, rust, ruby, java, php, dart)")
 	typeFilter := flag.String("type", "", "filter to a dependency type (direct, dev, indirect, peer, optional)")
-	resolve := flag.Bool("resolve", false, "resolve actual versions from lock files and node_modules")
+	noResolve := flag.Bool("no-resolve", false, "skip version resolution from lock files and node_modules")
 	check := flag.String("check", "", "check for vulnerable packages: pkg@>=1.0,<2.0,other-pkg (comma-separated)")
 	checkFile := flag.String("checkfile", "", "file with vulnerable package rules (one per line: pkg@constraint)")
 	gitignore := flag.Bool("gitignore", false, "respect .gitignore and .ignore exclusion files")
@@ -39,10 +39,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: versioneer [flags] [directory]\n\nScan and report project dependencies.\n\nFlags:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  versioneer .                                              # scan current dir\n")
-		fmt.Fprintf(os.Stderr, "  versioneer -resolve -dep=react ~/code                     # find react with actual versions\n")
-		fmt.Fprintf(os.Stderr, "  versioneer -resolve -check='axios@<1.7.0,colors' ~/code   # security sweep\n")
-		fmt.Fprintf(os.Stderr, "  versioneer -resolve -checkfile=vulns.txt ~/code            # sweep from file\n")
+		fmt.Fprintf(os.Stderr, "  versioneer .                                              # scan current dir (resolves versions by default)\n")
+		fmt.Fprintf(os.Stderr, "  versioneer -check='axios@<1.7.0,colors' ~/            # security sweep\n")
+		fmt.Fprintf(os.Stderr, "  versioneer -dep=react ~/code                              # find react with actual versions\n")
+		fmt.Fprintf(os.Stderr, "  versioneer -no-resolve .                                  # skip version resolution\n")
+		fmt.Fprintf(os.Stderr, "  versioneer -checkfile=vulns.txt ~/code                    # sweep from file\n")
 		fmt.Fprintf(os.Stderr, "\nCheckfile format (one rule per line):\n")
 		fmt.Fprintf(os.Stderr, "  axios@>=1.3.0,<1.6.4    # affected range\n")
 		fmt.Fprintf(os.Stderr, "  event-stream@=3.3.6      # exact malicious version\n")
@@ -72,7 +73,7 @@ func main() {
 	}
 
 	var result *model.ScanResult
-	needResolve := *resolve || *check != "" || *checkFile != ""
+	needResolve := !*noResolve || *check != "" || *checkFile != ""
 
 	if needResolve {
 		// Pipeline: scan and resolve concurrently — resolution begins while
